@@ -169,6 +169,7 @@ function cover(doc, project, inputs) {
 
 function toc(doc) {
   safeAddPage(doc);
+
   
 
   // Return TOC page index.
