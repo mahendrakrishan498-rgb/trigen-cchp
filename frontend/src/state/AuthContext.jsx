@@ -1,0 +1,41 @@
+import React, { createContext, useContext, useMemo, useState } from 'react';
+import { apiRequest } from '../api';
+
+const AuthContext = createContext(null);
+
+export function AuthProvider({ children }) {
+  const [user, setUser] = useState(() => {
+    const raw = localStorage.getItem('trigen_user');
+    return raw ? JSON.parse(raw) : null;
+  });
+
+  async function login(email, password) {
+    const data = await apiRequest('/auth/login', { method: 'POST', body: { email, password } });
+    localStorage.setItem('trigen_token', data.token);
+    localStorage.setItem('trigen_user', JSON.stringify(data.user));
+    setUser(data.user);
+    return data.user;
+  }
+
+  async function register(name, email, password) {
+    const data = await apiRequest('/auth/register', { method: 'POST', body: { name, email, password } });
+    localStorage.setItem('trigen_token', data.token);
+    localStorage.setItem('trigen_user', JSON.stringify(data.user));
+    setUser(data.user);
+    return data.user;
+  }
+
+  function logout() {
+    localStorage.removeItem('trigen_token');
+    localStorage.removeItem('trigen_user');
+    localStorage.removeItem('trigen_project_id');
+    setUser(null);
+  }
+
+  const value = useMemo(() => ({ user, login, register, logout, isAdmin: user?.role === 'admin' }), [user]);
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth() {
+  return useContext(AuthContext);
+}
