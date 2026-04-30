@@ -5,7 +5,7 @@ const pool = require('../db');
 const { authRequired } = require('../middleware/auth');
 const { parseUploadedTable, toNumber, pick } = require('../utils/fileParser');
 
-const upload = multer({ dest: 'tmp/uploads/' });
+const upload = multer({ dest: '/tmp/uploads/' });
 const router = express.Router();
 router.use(authRequired);
 

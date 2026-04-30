@@ -14,7 +14,7 @@ const pscadRoutes = require('./routes/pscad');
 const comparisonRoutes = require('./routes/comparison');
 const reportRoutes = require('./routes/reports');
 
-fs.mkdirSync('tmp/uploads', { recursive: true });
+fs.mkdirSync('/tmp/uploads', { recursive: true });
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '20mb' }));
