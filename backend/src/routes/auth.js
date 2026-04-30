@@ -29,12 +29,14 @@ router.post('/login', async (req, res, next) => {
     const { email, password } = req.body;
     const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
     const user = rows[0];
+    console.log(user)
     if (!user) return res.status(401).json({ message: 'Invalid email or password' });
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) return res.status(401).json({ message: 'Invalid email or password' });
     const safe = { id: user.id, name: user.name, email: user.email, role: user.role };
     res.json({ user: safe, token: tokenFor(safe) });
   } catch (err) {
+    console.log(err)
     next(err);
   }
 });
