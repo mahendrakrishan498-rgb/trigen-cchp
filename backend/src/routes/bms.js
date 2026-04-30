@@ -4,8 +4,19 @@ const fs = require('fs');
 const pool = require('../db');
 const { authRequired } = require('../middleware/auth');
 const { parseUploadedTable, toNumber, pick } = require('../utils/fileParser');
+const uploadDir = '/tmp/uploads';
 
-const upload = multer({ dest: 'uploads/' });
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const upload = multer({
+  dest: uploadDir,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10 MB
+  }
+});
+
 const router = express.Router();
 router.use(authRequired);
 
