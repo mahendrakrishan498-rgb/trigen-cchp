@@ -1,3 +1,56 @@
+function applyExcelMonthlyProfile(result, inputs) {
+  const profile = inputs.monthly_profile;
+
+  if (!Array.isArray(profile) || profile.length === 0) {
+    return result;
+  }
+
+  const existingMonthly = result.monthly_dispatch || [];
+
+  const annualElectricityKwh = profile.reduce(
+    (sum, r) => sum + Number(r.hotel_electricity_kwh || 0),
+    0
+  );
+
+  const annualCoolingKwh = profile.reduce(
+    (sum, r) => sum + Number(r.cooling_thermal_kwh || 0),
+    0
+  );
+
+  const annualHeatingKwh = profile.reduce(
+    (sum, r) => sum + Number(r.heating_thermal_kwh || 0),
+    0
+  );
+
+  result.monthly_dispatch = profile.map((row, index) => ({
+    ...(existingMonthly[index] || {}),
+    month: row.month,
+    occupancy_percent: row.occupancy_percent,
+    hotel_electricity_kwh: Number(row.hotel_electricity_kwh || 0),
+    cooling_thermal_kwh: Number(row.cooling_thermal_kwh || 0),
+    heating_thermal_kwh: Number(row.heating_thermal_kwh || 0)
+  }));
+
+  result.step01_load_profile = {
+    ...(result.step01_load_profile || {}),
+    data_source: 'Uploaded Excel/CSV input file',
+    excel_input_file_name: inputs.excel_input_file_name || '',
+    annual_electricity_kwh: annualElectricityKwh,
+    annual_cooling_thermal_kwh: annualCoolingKwh,
+    annual_heating_demand_kwh_th: annualHeatingKwh,
+    daily_electricity_kwh: annualElectricityKwh / 365,
+    daily_cooling_thermal_kwh: annualCoolingKwh / 365,
+    daily_heating_demand_kwh_th: annualHeatingKwh / 365
+  };
+
+  result.inputs_used = {
+    ...(result.inputs_used || {}),
+    excel_input_file_name: inputs.excel_input_file_name || '',
+    monthly_profile_uploaded: true
+  };
+
+  return result;
+}
 const express = require('express');
 const pool = require('../db');
 const { authRequired } = require('../middleware/auth');
@@ -17,8 +70,9 @@ router.post('/preview', async (req, res, next) => {
       ? await getLatestBmsSummary(req.body.project_id, req.user.id)
       : null;
 
-    const result = calculate(req.body || {}, settings, equipment, tariffs, bms);
-    res.json(result);
+      let result = calculate(req.body || {}, settings, equipment, tariffs, bms);
+      result = applyExcelMonthlyProfile(result, req.body || {});
+      res.json(result);
   } catch (err) {
     next(err);
   }
@@ -35,7 +89,8 @@ router.post('/save', async (req, res, next) => {
       ? await getLatestBmsSummary(inputs.project_id, req.user.id)
       : null;
 
-    const result = calculate(inputs, settings, equipment, tariffs, bms);
+      let result = calculate(inputs, settings, equipment, tariffs, bms);
+      result = applyExcelMonthlyProfile(result, inputs);
 
     const title = inputs.title || `${inputs.hotel_name || 'Hotel'} - Step03 Design`;
     const hotelName = inputs.hotel_name || '';
