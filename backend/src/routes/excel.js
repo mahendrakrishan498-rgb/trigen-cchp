@@ -3,7 +3,12 @@ const multer = require('multer');
 const XLSX = require('xlsx');
 
 const router = express.Router();
-
+router.get('/test', (req, res) => {
+    res.json({
+      ok: true,
+      message: 'Excel route is working online'
+    });
+  });
 
 const upload = multer({
   storage: multer.memoryStorage()
