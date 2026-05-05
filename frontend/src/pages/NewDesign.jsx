@@ -135,20 +135,51 @@ const [excelMessage, setExcelMessage] = useState('');
   ];
   function downloadExcelTemplate() {
     const csvContent =
-      'Month,Occupancy %,Electricity kWh,Cooling kWh,Heating kWh\\n' +
-      'Jan,83,450000,1200000,80000\\n' +
-      'Feb,80,430000,1150000,75000\\n' +
-      'Mar,78,420000,1100000,70000\\n';
+      'Project Titile=,,\n' +
+      'Hotel name=,,\n' +
+      'Project Start year=,,\n' +
+      'Number of Rooms=,,\n' +
+      'Location / Hotel cluster=,,\n' +
+      'Laundry operation=,,No\n' +
+      'Electricity intensity (kWh/room/day)=,,\n' +
+      'Cooling share=,,\n' +
+      'DHW L/ORN=,,\n' +
+      'Occupancy %=,,\n' +
+      'Grid import tariff (LKR/kWh)=,,\n' +
+      'Selected biomass fuel=,,\n' +
+      'Biomass price (LKR/kg)=,,\n' +
+      'Biomass LHV (kWh/kg)=,,\n' +
+      '\n' +
+      'Month,Occupancy %,Electricity kWh,Cooling kWh,Heating kWh\n' +
+      'Jan,,,,\n' +
+      'Feb,,,,\n' +
+      'Mar,,,,\n' +
+      'Apr,,,,\n' +
+      'May,,,,\n' +
+      'Jun,,,,\n' +
+      'Jul,,,,\n' +
+      'Aug,,,,\n' +
+      'Sep,,,,\n' +
+      'Oct,,,,\n' +
+      'Nov,,,,\n' +
+      'Dec,,,,\n';
   
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
+    const blob = new Blob([csvContent], {
+      type: 'text/csv;charset=utf-8'
+    });
   
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'hotel_energy_input_template.csv';
-    a.click();
+    const url = window.URL.createObjectURL(blob);
   
-    URL.revokeObjectURL(url);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'hotel_energy_input_template.csv');
+    link.style.display = 'none';
+  
+    document.body.appendChild(link);
+    link.click();
+  
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   }
   
   function handleExcelSelect(e) {
@@ -165,18 +196,72 @@ const [excelMessage, setExcelMessage] = useState('');
     setExcelMessage('File selected. Click Upload to attach this Excel input file.');
   }
   
-  function handleExcelUpload() {
+  async function handleExcelUpload() {
+    alert('Upload button clicked');
+    console.log('Upload button clicked');
     if (!excelFile) {
       setExcelMessage('Please select an Excel/CSV file first.');
       return;
     }
+
+    try {
+      const formData = new FormData();
+      formData.append('file', excelFile);
   
-    setInputs((old) => ({
-      ...old,
-      excel_input_file_name: excelFile.name
-    }));
+      const token = localStorage.getItem('token');
   
-    setExcelMessage(`Uploaded: ${excelFile.name}`);
+      const apiBase =
+        (import.meta.env.VITE_API_BASE || 'http://localhost:5000/api').replace(/\/$/, '');
+  
+      const res = await fetch(`${apiBase}/excel/upload`, {
+        method: 'POST',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: formData
+      });
+  
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || 'Excel upload failed');
+      }
+  
+      const data = await res.json();
+  
+      setInputs((old) => ({
+        ...old,
+  
+        // Update input tab fields from Excel C1:C14
+        ...(data.inputs_update || {}),
+  
+        // Save uploaded file name
+        excel_input_file_name: data.file_name,
+  
+        // Only add monthly profile if monthly data was filled
+        ...(data.monthly_profile && data.monthly_profile.length > 0
+          ? { monthly_profile: data.monthly_profile }
+          : {}),
+  
+        uploaded_annual_electricity_kwh: data.summary.annual_electricity_kwh,
+        uploaded_annual_cooling_thermal_kwh: data.summary.annual_cooling_thermal_kwh,
+        uploaded_annual_heating_demand_kwh_th: data.summary.annual_heating_demand_kwh_th
+      }));
+  
+      setExcelFileName(data.file_name);
+  
+      if (data.monthly_profile && data.monthly_profile.length > 0) {
+        setExcelMessage(
+          `Uploaded and processed: ${data.file_name}. Project inputs and monthly profile were updated. Now click Run Simulation.`
+        );
+      } else {
+        setExcelMessage(
+          `Uploaded and processed: ${data.file_name}. Project inputs were updated. Monthly graph data is blank.`
+        );
+      }
+    } catch (err) {
+      console.error(err);
+      setExcelMessage(`Upload failed: ${err.message}`);
+    }
   }
 
   return (

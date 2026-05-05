@@ -1,4 +1,5 @@
 require('dotenv').config();
+const excelRoutes = require('./routes/excel');
 const clusterRoutes = require('./routes/clusters');
 const express = require('express');
 const fs = require('fs');
@@ -20,6 +21,7 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true }));
+app.use('/api/excel', excelRoutes);
 
 app.get('/api/health', (req, res) => res.json({ ok: true, name: 'trigen-cchp-backend', version: '2.0.0' }));
 app.use('/api/auth', authRoutes);
