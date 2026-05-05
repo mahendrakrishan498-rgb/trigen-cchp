@@ -97,4 +97,46 @@ nav a.active, nav a:hover { background: #183b51; color: white; }
   color: #fff;
   border-radius: 10px;
   text-decoration: none;
+}.excel-upload-panel {
+  min-height: 300px;
+}
+
+.excel-box {
+  margin-top: 18px;
+  padding: 18px;
+  border: 2px dashed #cbd5e1;
+  border-radius: 16px;
+  background: #f8fafc;
+  display: grid;
+  gap: 14px;
+}
+
+.selected-file-box {
+  padding: 12px 14px;
+  background: white;
+  border: 1px solid #dbe3eb;
+  border-radius: 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.file-select-btn {
+  display: inline-block;
+  text-align: center;
+  background: #0f5132;
+  color: white;
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.file-select-btn:hover {
+  background: #0b3d26;
+}
+
+.mini-summary {
+  margin-top: 20px;
 }

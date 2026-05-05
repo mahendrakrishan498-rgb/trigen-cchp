@@ -1,4 +1,5 @@
 require('dotenv').config();
+const clusterRoutes = require('./routes/clusters');
 const express = require('express');
 const fs = require('fs');
 const cors = require('cors');
@@ -28,6 +29,7 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/bms', bmsRoutes);
 app.use('/api/pscad', pscadRoutes);
 app.use('/api/comparison', comparisonRoutes);
+app.use('/api/clusters', clusterRoutes);
 app.use('/api/reports', reportRoutes);
 app.use(errorHandler);
 

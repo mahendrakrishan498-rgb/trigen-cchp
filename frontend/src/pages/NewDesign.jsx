@@ -33,14 +33,18 @@ const defaults = {
 function money(v) { return Number(v || 0).toLocaleString('en-LK', { maximumFractionDigits: 0 }); }
 
 export default function NewDesign() {
+  
   const { setProjectId, setProject, projectId } = useProject();
   const [inputs, setInputs] = useState({ ...defaults, project_id: projectId || '' });
   const [clusters, setClusters] = useState([]);
   const [result, setResult] = useState(null);
   const [message, setMessage] = useState('');
 
+  const [excelFile, setExcelFile] = useState(null);
+const [excelFileName, setExcelFileName] = useState('No file selected');
+const [excelMessage, setExcelMessage] = useState('');
   useEffect(() => {
-    apiRequest('/admin/clusters').then((rows) => {
+    apiRequest('/clusters').then((rows) => {
       setClusters(rows);
       const selected = rows.find((c) => c.cluster_name === inputs.location);
       if (selected) applyCluster(selected, false);
@@ -51,24 +55,50 @@ export default function NewDesign() {
 
   function applyCluster(cluster, showMessage = true) {
     if (!cluster) return;
+  
     setInputs((old) => ({
       ...old,
       location: cluster.cluster_name,
-      electricity_intensity_kwh_room_day: Number(cluster.electricity_intensity_kwh_room_day),
-      cooling_share: Number(cluster.cooling_share),
-      dhw_l_orn: Number(cluster.dhw_l_orn),
-      occupancy_percent: Number(cluster.occupancy_percent),
-      grid_import_tariff_lkr_kwh: Number(cluster.grid_import_tariff_lkr_kwh),
-      selected_biomass_fuel: cluster.selected_biomass_fuel,
-      selected_biomass_delivered_cost_lkr_kg: Number(cluster.selected_biomass_delivered_cost_lkr_kg),
-      selected_biomass_lhv_kwh_kg: Number(cluster.selected_biomass_lhv_kwh_kg)
+  
+      electricity_intensity_kwh_room_day:
+        Number(cluster.electricity_intensity_kwh_room_day || 0),
+  
+      cooling_share:
+        Number(cluster.cooling_share || 0),
+  
+      dhw_l_orn:
+        Number(cluster.dhw_l_orn || 0),
+  
+      occupancy_percent:
+        Number(cluster.occupancy_percent || 0),
+  
+      grid_import_tariff_lkr_kwh:
+        Number(cluster.grid_import_tariff_lkr_kwh || 0),
+  
+      selected_biomass_fuel:
+        cluster.selected_biomass_fuel || 'Gliricidia',
+  
+      selected_biomass_delivered_cost_lkr_kg:
+        Number(cluster.selected_biomass_delivered_cost_lkr_kg || 0),
+  
+      selected_biomass_lhv_kwh_kg:
+        Number(cluster.selected_biomass_lhv_kwh_kg || 0)
     }));
-    if (showMessage) setMessage(`Cluster defaults loaded: ${cluster.cluster_name}. You can still edit any value manually.`);
+  
+    if (showMessage) {
+      setMessage(`Cluster defaults loaded: ${cluster.cluster_name}. You can still edit values manually.`);
+    }
   }
 
   function changeCluster(name) {
     const cluster = clusters.find((c) => c.cluster_name === name);
-    applyCluster(cluster);
+  
+    if (!cluster) {
+      setField('location', name);
+      return;
+    }
+  
+    applyCluster(cluster, true);
   }
 
   async function preview() {
@@ -103,82 +133,254 @@ export default function NewDesign() {
     ['discount_rate','Discount rate','number'],
     ['inflation_escalation_rate','Escalation rate','number']
   ];
+  function downloadExcelTemplate() {
+    const csvContent =
+      'Month,Occupancy %,Electricity kWh,Cooling kWh,Heating kWh\\n' +
+      'Jan,83,450000,1200000,80000\\n' +
+      'Feb,80,430000,1150000,75000\\n' +
+      'Mar,78,420000,1100000,70000\\n';
+  
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+  
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'hotel_energy_input_template.csv';
+    a.click();
+  
+    URL.revokeObjectURL(url);
+  }
+  
+  function handleExcelSelect(e) {
+    const file = e.target.files[0];
+  
+    if (!file) {
+      setExcelFile(null);
+      setExcelFileName('No file selected');
+      return;
+    }
+  
+    setExcelFile(file);
+    setExcelFileName(file.name);
+    setExcelMessage('File selected. Click Upload to attach this Excel input file.');
+  }
+  
+  function handleExcelUpload() {
+    if (!excelFile) {
+      setExcelMessage('Please select an Excel/CSV file first.');
+      return;
+    }
+  
+    setInputs((old) => ({
+      ...old,
+      excel_input_file_name: excelFile.name
+    }));
+  
+    setExcelMessage(`Uploaded: ${excelFile.name}`);
+  }
 
-  return <>
-    <PageHeader title="Input" subtitle="Enter hotel, cluster, technical and financial inputs. Cluster defaults can be updated from the Cluster Data page." />
-
-    {message && <p className="success">{message}</p>}
-
-    <section className="panel">
-      <h3>Hotel Cluster Selection</h3>
-      <div className="form-grid">
-        <label>Location / Hotel cluster
-          <select value={inputs.location} onChange={(e)=>changeCluster(e.target.value)}>
-            {clusters.length === 0 && <option>{inputs.location}</option>}
-            {clusters.map((c)=><option key={c.id} value={c.cluster_name}>{c.cluster_name}</option>)}
-          </select>
-        </label>
-        <label>Laundry operation?
-          <select value={inputs.laundry_operation} onChange={(e)=>setField('laundry_operation', e.target.value)}>
-            <option>No</option>
-            <option>Yes</option>
-          </select>
-        </label>
-        <label>Selected biomass fuel
-          <select value={inputs.selected_biomass_fuel} onChange={(e)=>setField('selected_biomass_fuel', e.target.value)}>
-            <option>Gliricidia</option>
-            <option>Cinnamon</option>
-            <option>Wood chips</option>
-            <option>Agricultural residue</option>
-            <option>Mixed biomass</option>
-          </select>
-        </label>
-      </div>
-      <p className="muted">Changing the cluster automatically fills electricity intensity, cooling share, DHW demand, tariff and biomass values. You can manually change them below.</p>
-    </section>
-
-    <div className="two-col">
+  return (
+    <>
+      <PageHeader
+        title="Input"
+        subtitle="Enter hotel, cluster, technical and financial inputs. Cluster defaults can be updated from the Cluster Data page."
+      />
+  
+      {message && <p className="success">{message}</p>}
+  
       <section className="panel">
-        <h3>Project and Excel-linked Inputs</h3>
+        <h3>Hotel Cluster Selection</h3>
+  
         <div className="form-grid">
-          {fields.map(([k,label,type]) => (
-            <label key={k}>{label}
-              <input type={type} step="any" value={inputs[k] ?? ''} onChange={(e)=>setField(k, type==='number'?Number(e.target.value):e.target.value)} />
+          <label>
+            Location / Hotel cluster
+            <select
+              value={inputs.location}
+              onChange={(e) => changeCluster(e.target.value)}
+            >
+              <option value="">Select cluster</option>
+  
+              {clusters.map((c) => (
+                <option key={c.id} value={c.cluster_name}>
+                  {c.cluster_name}
+                </option>
+              ))}
+            </select>
+          </label>
+  
+          <label>
+            Laundry operation?
+            <select
+              value={inputs.laundry_operation}
+              onChange={(e) => setField('laundry_operation', e.target.value)}
+            >
+              <option>No</option>
+              <option>Yes</option>
+            </select>
+          </label>
+  
+          <label>
+            Selected biomass fuel
+            <select
+              value={inputs.selected_biomass_fuel}
+              onChange={(e) => setField('selected_biomass_fuel', e.target.value)}
+            >
+              <option>Gliricidia</option>
+              <option>Cinnamon</option>
+              <option>Wood chips</option>
+              <option>Agricultural residue</option>
+              <option>Mixed biomass</option>
+            </select>
+          </label>
+        </div>
+  
+        <p className="muted">
+          Changing the cluster automatically fills electricity intensity, cooling share,
+          DHW demand, tariff and biomass values. You can manually change them below.
+        </p>
+      </section>
+  
+      <div className="two-col">
+        <section className="panel">
+          <h3>Project and Excel-linked Inputs</h3>
+  
+          <div className="form-grid">
+            {fields.map(([k, label, type]) => (
+              <label key={k}>
+                {label}
+                <input
+                  type={type}
+                  step="any"
+                  value={inputs[k] ?? ''}
+                  onChange={(e) =>
+                    setField(k, type === 'number' ? Number(e.target.value) : e.target.value)
+                  }
+                />
+              </label>
+            ))}
+          </div>
+  
+          <label>
+            CAPEX override (optional LKR)
+            <input
+              type="number"
+              placeholder="Leave blank to use Excel CAPEX build-up"
+              onChange={(e) =>
+                setField('capex_lkr', e.target.value ? Number(e.target.value) : undefined)
+              }
+            />
+          </label>
+  
+          <div className="button-row">
+            <button onClick={save}>Save Project</button>
+            <button onClick={preview}>Run Simulation</button>
+          </div>
+        </section>
+  
+        <section className="panel excel-upload-panel">
+          <h3>Excel Input File</h3>
+  
+          <p className="muted">
+            Upload the hotel energy input Excel/CSV file here. You can download the sample format first,
+            fill the monthly data, and then upload it to attach with this project.
+          </p>
+  
+          <div className="excel-box">
+            <button type="button" className="secondary" onClick={downloadExcelTemplate}>
+              Download Format
+            </button>
+  
+            <div className="selected-file-box">
+              <strong>Selected file:</strong>
+              <span>{excelFileName}</span>
+            </div>
+  
+            <label className="file-select-btn">
+              Select File
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={handleExcelSelect}
+                hidden
+              />
             </label>
-          ))}
-        </div>
-        <label>CAPEX override (optional LKR)
-          <input type="number" placeholder="Leave blank to use Excel CAPEX build-up" onChange={(e)=>setField('capex_lkr', e.target.value ? Number(e.target.value) : undefined)} />
-        </label>
-
-        <div className="button-row">
-          <button onClick={save}>Save Project</button>
-          <button onClick={preview}>Run Simulation</button>
-        </div>
-      </section>
-
-      <section className="panel">
-        <h3>Simulation Summary</h3>
-        {!result && <p className="muted">Click Run Simulation or Save Project to see key results.</p>}
-        {result && <div className="grid cards small">
-          <MetricCard label="Turbine" value={result.system_sizing.turbine_kw} unit="kW" />
-          <MetricCard label="Main/backup chiller" value={`${result.system_sizing.main_chiller_rt}/${result.system_sizing.backup_chiller_rt}`} unit="RT" />
-          <MetricCard label="Steam generator" value={money(result.system_sizing.steam_generator_kg_h)} unit="kg/h" />
-          <MetricCard label="NPV" value={money(result.financial.npv_lkr)} unit="LKR" />
-          <MetricCard label="IRR" value={result.financial.irr_percent} unit="%" />
-          <MetricCard label="Payback" value={result.financial.simple_payback_years} unit="years" />
-        </div>}
-      </section>
-    </div>
-
-    {result && <section className="panel">
-      <h3>Input Values Used in Simulation</h3>
-      <table className="data-table">
-        <thead><tr><th>Input</th><th>Value</th></tr></thead>
-        <tbody>{Object.entries(result.inputs_used || inputs).slice(0, 30).map(([k,v])=>(
-          <tr key={k}><td>{k}</td><td>{typeof v === 'number' ? v.toLocaleString(undefined, {maximumFractionDigits: 4}) : String(v)}</td></tr>
-        ))}</tbody>
-      </table>
-    </section>}
-  </>;
+  
+            <button type="button" onClick={handleExcelUpload}>
+              Upload
+            </button>
+  
+            {excelMessage && <p className="success">{excelMessage}</p>}
+          </div>
+  
+          {result && (
+            <div className="mini-summary">
+              <h4>Simulation Summary</h4>
+  
+              <table className="data-table">
+                <tbody>
+                  <tr>
+                    <td>Turbine</td>
+                    <td>{result.system_sizing?.turbine_kw || 0} kW</td>
+                  </tr>
+  
+                  <tr>
+                    <td>Dual chiller</td>
+                    <td>
+                      {(
+                        Number(result.system_sizing?.main_chiller_rt || 0) +
+                        Number(result.system_sizing?.backup_chiller_rt || 0)
+                      ).toLocaleString()} RT
+                    </td>
+                  </tr>
+  
+                  <tr>
+                    <td>NPV</td>
+                    <td>{Number(result.financial?.npv_lkr || 0).toLocaleString()} LKR</td>
+                  </tr>
+  
+                  <tr>
+                    <td>IRR</td>
+                    <td>{result.financial?.irr_percent || 0}%</td>
+                  </tr>
+  
+                  <tr>
+                    <td>Payback</td>
+                    <td>{result.financial?.simple_payback_years || 0} years</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      </div>
+  
+      {result && (
+        <section className="panel">
+          <h3>Input Values Used in Simulation</h3>
+  
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Input</th>
+                <th>Value</th>
+              </tr>
+            </thead>
+  
+            <tbody>
+              {Object.entries(result.inputs_used || inputs).slice(0, 30).map(([k, v]) => (
+                <tr key={k}>
+                  <td>{k}</td>
+                  <td>
+                    {typeof v === 'number'
+                      ? v.toLocaleString(undefined, { maximumFractionDigits: 4 })
+                      : String(v)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
+    </>
+  );
 }
