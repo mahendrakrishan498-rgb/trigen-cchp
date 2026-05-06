@@ -1,11 +1,10 @@
 const express = require('express');
 const multer = require('multer');
-const fs = require('fs');
 const pool = require('../db');
 const { authRequired } = require('../middleware/auth');
 const { parseUploadedTable, toNumber, pick } = require('../utils/fileParser');
 
-const upload = multer({ dest: '/tmp/uploads/' });
+const upload = multer({ storage: multer.memoryStorage() });
 const router = express.Router();
 router.use(authRequired);
 
@@ -65,9 +64,9 @@ router.post('/:projectId/manual', async (req, res, next) => {
 router.post('/:projectId/upload', upload.single('file'), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'File required' });
-    const rows = await parseUploadedTable(req.file.path, req.file.originalname);
+    const rows = await parseUploadedTable(req.file.buffer, req.file.originalname);
     const count = await saveRows(req.params.projectId, req.user.id, rows);
-    fs.unlink(req.file.path, () => {});
+
     res.json({ message: 'RETScreen/Excel comparison uploaded', count });
   } catch (err) { next(err); }
 });

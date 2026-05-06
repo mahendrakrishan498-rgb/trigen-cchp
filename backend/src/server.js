@@ -1,8 +1,5 @@
 require('dotenv').config();
-const excelRoutes = require('./routes/excel');
-const clusterRoutes = require('./routes/clusters');
 const express = require('express');
-const fs = require('fs');
 const cors = require('cors');
 const errorHandler = require('./middleware/errorHandler');
 const { ensureAdminUser } = require('./services/authBootstrap');
@@ -15,13 +12,12 @@ const bmsRoutes = require('./routes/bms');
 const pscadRoutes = require('./routes/pscad');
 const comparisonRoutes = require('./routes/comparison');
 const reportRoutes = require('./routes/reports');
+const excelRoutes = require('./routes/excel');
 
-fs.mkdirSync('/tmp/uploads', { recursive: true });
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true }));
-app.use('/api/excel', excelRoutes);
 
 app.get('/api/health', (req, res) => res.json({ ok: true, name: 'trigen-cchp-backend', version: '2.0.0' }));
 app.use('/api/auth', authRoutes);
@@ -31,8 +27,8 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/bms', bmsRoutes);
 app.use('/api/pscad', pscadRoutes);
 app.use('/api/comparison', comparisonRoutes);
-app.use('/api/clusters', clusterRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/excel', excelRoutes);
 app.use(errorHandler);
 
 const port = Number(process.env.PORT || 5000);

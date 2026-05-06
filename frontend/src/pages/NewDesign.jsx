@@ -197,8 +197,6 @@ const [excelMessage, setExcelMessage] = useState('');
   }
   
   async function handleExcelUpload() {
-    alert('Upload button clicked');
-    console.log('Upload button clicked');
     if (!excelFile) {
       setExcelMessage('Please select an Excel/CSV file first.');
       return;
@@ -207,26 +205,10 @@ const [excelMessage, setExcelMessage] = useState('');
     try {
       const formData = new FormData();
       formData.append('file', excelFile);
-  
-      const token = localStorage.getItem('token');
-  
-      const apiBase =
-        (import.meta.env.VITE_API_BASE || 'http://localhost:5000/api').replace(/\/$/, '');
-  
-      const res = await fetch(`${apiBase}/excel/upload`, {
+      const data = await apiRequest('/excel/upload', {
         method: 'POST',
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
         body: formData
       });
-  
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || 'Excel upload failed');
-      }
-  
-      const data = await res.json();
   
       setInputs((old) => ({
         ...old,

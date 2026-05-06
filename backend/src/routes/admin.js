@@ -2,10 +2,9 @@ const express = require('express');
 const pool = require('../db');
 const { authRequired, adminRequired } = require('../middleware/auth');
 const multer = require('multer');
-const fs = require('fs');
 const { parseUploadedTable, toNumber, pick } = require('../utils/fileParser');
 
-const upload = multer({ dest: '/tmp/uploads/' });
+const upload = multer({ storage: multer.memoryStorage() });
 const router = express.Router();
 router.use(authRequired, adminRequired);
 
@@ -126,7 +125,7 @@ router.post('/clusters', async (req, res, next) => {
 
 router.post('/clusters/upload', upload.single('file'), async (req, res, next) => {
   try {
-    const rows = await parseUploadedTable(req.file.path, req.file.originalname);
+    const rows = await parseUploadedTable(req.file.buffer, req.file.originalname);
     let updated = 0;
     for (const row of rows) {
       const clusterName = pick(row, ['cluster_name', 'cluster', 'hotel_cluster', 'location']);
@@ -147,7 +146,6 @@ router.post('/clusters/upload', upload.single('file'), async (req, res, next) =>
       ]);
       updated += 1;
     }
-    if (req.file?.path) fs.unlinkSync(req.file.path);
     res.json({ message: `Cluster upload completed`, updated });
   } catch (err) { next(err); }
 });

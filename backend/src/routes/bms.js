@@ -1,17 +1,11 @@
 const express = require('express');
 const multer = require('multer');
-const fs = require('fs');
 const pool = require('../db');
 const { authRequired } = require('../middleware/auth');
 const { parseUploadedTable, toNumber, pick } = require('../utils/fileParser');
-const uploadDir = '/tmp/uploads';
-
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
 
 const upload = multer({
-  dest: uploadDir,
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 10 * 1024 * 1024 // 10 MB
   }
@@ -68,7 +62,7 @@ router.post('/:projectId/upload', upload.single('file'), async (req, res, next) 
     const [projects] = await pool.query('SELECT id FROM projects WHERE id=? AND user_id=?', [req.params.projectId, req.user.id]);
     if (!projects[0]) return res.status(404).json({ message: 'Project not found' });
 
-    const rows = await parseUploadedTable(req.file.path, req.file.originalname);
+    const rows = await parseUploadedTable(req.file.buffer, req.file.originalname);
     const summary = summarize(rows);
     const [up] = await pool.query(
       'INSERT INTO bms_uploads (project_id, user_id, filename, record_count, summary_json) VALUES (?, ?, ?, ?, ?)',
@@ -90,7 +84,6 @@ router.post('/:projectId/upload', upload.single('file'), async (req, res, next) 
         [values]
       );
     }
-    fs.unlink(req.file.path, () => {});
     res.json({ upload_id: uploadId, summary, message: 'BMS data uploaded' });
   } catch (err) { next(err); }
 });

@@ -1,11 +1,10 @@
 const express = require('express');
 const multer = require('multer');
-const fs = require('fs');
 const pool = require('../db');
 const { authRequired } = require('../middleware/auth');
 const { parseUploadedTable, toNumber, pick } = require('../utils/fileParser');
 
-const upload = multer({ dest: '/tmp/uploads/' });
+const upload = multer({ storage: multer.memoryStorage() });
 const router = express.Router();
 router.use(authRequired);
 
@@ -14,7 +13,7 @@ router.post('/:projectId/upload', upload.single('file'), async (req, res, next) 
     if (!req.file) return res.status(400).json({ message: 'File required' });
     const [projects] = await pool.query('SELECT id FROM projects WHERE id=? AND user_id=?', [req.params.projectId, req.user.id]);
     if (!projects[0]) return res.status(404).json({ message: 'Project not found' });
-    const rows = await parseUploadedTable(req.file.path, req.file.originalname);
+    const rows = await parseUploadedTable(req.file.buffer, req.file.originalname);
     const values = rows.slice(0, 20000).map((r) => [
       req.params.projectId,
       req.user.id,
@@ -28,7 +27,6 @@ router.post('/:projectId/upload', upload.single('file'), async (req, res, next) 
     if (values.length) {
       await pool.query('INSERT INTO pscad_results (project_id, user_id, time_s, voltage_v, frequency_hz, power_kw, exported_kw) VALUES ?', [values]);
     }
-    fs.unlink(req.file.path, () => {});
     res.json({ message: 'PSCAD results uploaded', count: values.length });
   } catch (err) { next(err); }
 });

@@ -1,4 +1,4 @@
-const fs = require('fs');
+const { Readable } = require('stream');
 const csv = require('csv-parser');
 const XLSX = require('xlsx');
 
@@ -19,10 +19,11 @@ function normalizeRow(row) {
   return out;
 }
 
-function parseCsv(filePath) {
+function parseCsv(buffer) {
   return new Promise((resolve, reject) => {
     const rows = [];
-    fs.createReadStream(filePath)
+
+    Readable.from(buffer)
       .pipe(csv())
       .on('data', (data) => rows.push(normalizeRow(data)))
       .on('end', () => resolve(rows))
@@ -30,17 +31,19 @@ function parseCsv(filePath) {
   });
 }
 
-function parseExcel(filePath) {
-  const workbook = XLSX.readFile(filePath);
+function parseExcel(buffer) {
+  const workbook = XLSX.read(buffer, { type: 'buffer' });
   const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
   const raw = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
   return raw.map(normalizeRow);
 }
 
-async function parseUploadedTable(filePath, originalName) {
+async function parseUploadedTable(fileBuffer, originalName) {
   const ext = (originalName || '').toLowerCase().split('.').pop();
-  if (ext === 'csv') return parseCsv(filePath);
-  if (ext === 'xlsx' || ext === 'xls') return parseExcel(filePath);
+
+  if (ext === 'csv') return parseCsv(fileBuffer);
+  if (ext === 'xlsx' || ext === 'xls') return parseExcel(fileBuffer);
+
   throw new Error('Unsupported file type. Upload CSV, XLSX, or XLS.');
 }
 
