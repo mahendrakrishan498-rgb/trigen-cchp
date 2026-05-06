@@ -43,6 +43,6 @@ export default function App() {
     <Route path="/projects" element={<P><Projects /></P>} />
     <Route path="/cluster-data" element={<P admin><ClusterData /></P>} />
     <Route path="/admin" element={<P admin><Admin /></P>} />
-    <Route path="/methodology" element={<P><Methodology /></P>} />
+    <Route path="/methodology" element={<P admin><Methodology /></P>} />
   </Routes>;
 }

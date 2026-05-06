@@ -46,8 +46,13 @@ function make15MinProfile() {
   return arr.map((r) => { const c = r.cooling_factor / cAvg; return { ...r, electric_factor: r.electric_factor/eAvg, cooling_factor: 1 + (c - 1) * 0.52 }; });
 }
 
-function monthlyFactors(occupancyPercent) {
-  const base = [1.42,1.28,1.03,1.20,0.94,0.45,0.64,0.89,0.78,0.98,1.06,1.31];
+function monthlyFactors(occupancyPercent, inputFactors = null) {
+  const defaultBase = [1.42,1.28,1.03,1.20,0.94,0.45,0.64,0.89,0.78,0.98,1.06,1.31];
+  const source = Array.isArray(inputFactors) && inputFactors.length ? inputFactors : defaultBase;
+  const base = defaultBase.map((fallback, index) => {
+    const value = Number(source[index]);
+    return Number.isFinite(value) && value > 0 ? value : fallback;
+  });
   const avg = base.reduce((a,b)=>a+b,0)/base.length;
   return base.map((v,i) => ({ month: MONTHS[i], days: DAYS[i], factor: v/avg, occupancy_percent: round(clamp(occupancyPercent * (0.92 + (v/avg - 1) * 0.18), 40, 100), 2) }));
 }
@@ -225,7 +230,7 @@ function calculate(input = {}, settings = {}, equipmentRows = [], exportTariffs 
   const proposedNetEmissions = proposedGridImportEmissions - proposedExportDisplacementCredit + proposedBiomassFuelEmissions;
   const annualGhgReduction = baselineTotalEmissions - proposedNetEmissions;
 
-  const mf = monthlyFactors(occupancyPercent);
+  const mf = monthlyFactors(occupancyPercent, input.monthly_factors);
   const monthlyTotalFactorDays = mf.reduce((s,m)=>s+m.factor*m.days,0);
   const monthly = mf.map((m, idx) => {
     const weight = m.factor * m.days / monthlyTotalFactorDays;

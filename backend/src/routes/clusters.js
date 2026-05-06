@@ -1,11 +1,13 @@
 const express = require('express');
 const pool = require('../db');
+const { ensureClusterMonthlyFactorsColumn, rowWithMonthlyFactors } = require('../services/clusterDefaultsService');
 
 const router = express.Router();
 
 // Public route: used by Input tab to load hotel cluster defaults
 router.get('/', async (req, res, next) => {
   try {
+    await ensureClusterMonthlyFactorsColumn();
     const [rows] = await pool.query(`
       SELECT
         id,
@@ -18,7 +20,8 @@ router.get('/', async (req, res, next) => {
         selected_biomass_fuel,
         selected_biomass_delivered_cost_lkr_kg,
         selected_biomass_lhv_kwh_kg,
-        notes
+        notes,
+        monthly_factors_json
       FROM cluster_defaults
       ORDER BY
         FIELD(
@@ -33,7 +36,7 @@ router.get('/', async (req, res, next) => {
         cluster_name
     `);
 
-    res.json(rows);
+    res.json(rows.map(rowWithMonthlyFactors));
   } catch (err) {
     next(err);
   }

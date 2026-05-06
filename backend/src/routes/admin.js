@@ -3,6 +3,11 @@ const pool = require('../db');
 const { authRequired, adminRequired } = require('../middleware/auth');
 const multer = require('multer');
 const { parseUploadedTable, toNumber, pick } = require('../utils/fileParser');
+const {
+  ensureClusterMonthlyFactorsColumn,
+  monthlyFactorsJson,
+  rowWithMonthlyFactors
+} = require('../services/clusterDefaultsService');
 
 const upload = multer({ storage: multer.memoryStorage() });
 const router = express.Router();
@@ -66,8 +71,9 @@ router.put('/export-tariffs/:year', async (req, res, next) => {
 
 router.get('/clusters', async (req, res, next) => {
   try {
+    await ensureClusterMonthlyFactorsColumn();
     const [rows] = await pool.query('SELECT * FROM cluster_defaults ORDER BY FIELD(cluster_name, "Colombo–Negombo","South/South-West Coast","Cultural Triangle","Hill Country","East Coast/Wildlife","Generic Hotel Case"), cluster_name');
-    res.json(rows);
+    res.json(rows.map(rowWithMonthlyFactors));
   } catch (err) { next(err); }
 });
 
@@ -75,7 +81,7 @@ router.get('/clusters/template', async (req, res) => {
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', 'attachment; filename="cluster_defaults_template.csv"');
   res.send([
-    'cluster_name,electricity_intensity_kwh_room_day,cooling_share,dhw_l_orn,occupancy_percent,grid_import_tariff_lkr_kwh,selected_biomass_fuel,selected_biomass_delivered_cost_lkr_kg,selected_biomass_lhv_kwh_kg,notes',
+    'cluster_name,electricity_intensity_kwh_room_day,cooling_share,dhw_l_orn,occupancy_percent,grid_import_tariff_lkr_kwh,selected_biomass_fuel,selected_biomass_delivered_cost_lkr_kg,selected_biomass_lhv_kwh_kg,monthly_factor_jan,monthly_factor_feb,monthly_factor_mar,monthly_factor_apr,monthly_factor_may,monthly_factor_jun,monthly_factor_jul,monthly_factor_aug,monthly_factor_sep,monthly_factor_oct,monthly_factor_nov,monthly_factor_dec,notes',
     'Colombo–Negombo,58,0.62,320,82,68,Gliricidia,36,4.0,Urban coastal hotel cluster',
     'South/South-West Coast,50,0.59147046,308,83,62,Gliricidia,35,4.0,South/South-West resort cluster'
   ].join('\n'));
@@ -83,9 +89,10 @@ router.get('/clusters/template', async (req, res) => {
 
 router.put('/clusters/:id', async (req, res, next) => {
   try {
+    await ensureClusterMonthlyFactorsColumn();
     const { id } = req.params;
     const r = req.body;
-    await pool.query(`UPDATE cluster_defaults SET cluster_name=?, electricity_intensity_kwh_room_day=?, cooling_share=?, dhw_l_orn=?, occupancy_percent=?, grid_import_tariff_lkr_kwh=?, selected_biomass_fuel=?, selected_biomass_delivered_cost_lkr_kg=?, selected_biomass_lhv_kwh_kg=?, notes=? WHERE id=?`, [
+    await pool.query(`UPDATE cluster_defaults SET cluster_name=?, electricity_intensity_kwh_room_day=?, cooling_share=?, dhw_l_orn=?, occupancy_percent=?, grid_import_tariff_lkr_kwh=?, selected_biomass_fuel=?, selected_biomass_delivered_cost_lkr_kg=?, selected_biomass_lhv_kwh_kg=?, monthly_factors_json=?, notes=? WHERE id=?`, [
       r.cluster_name,
       r.electricity_intensity_kwh_room_day,
       r.cooling_share,
@@ -95,6 +102,7 @@ router.put('/clusters/:id', async (req, res, next) => {
       r.selected_biomass_fuel || '',
       r.selected_biomass_delivered_cost_lkr_kg,
       r.selected_biomass_lhv_kwh_kg,
+      monthlyFactorsJson(r),
       r.notes || '',
       id
     ]);
@@ -104,10 +112,11 @@ router.put('/clusters/:id', async (req, res, next) => {
 
 router.post('/clusters', async (req, res, next) => {
   try {
+    await ensureClusterMonthlyFactorsColumn();
     const r = req.body;
-    await pool.query(`INSERT INTO cluster_defaults (cluster_name, electricity_intensity_kwh_room_day, cooling_share, dhw_l_orn, occupancy_percent, grid_import_tariff_lkr_kwh, selected_biomass_fuel, selected_biomass_delivered_cost_lkr_kg, selected_biomass_lhv_kwh_kg, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON DUPLICATE KEY UPDATE electricity_intensity_kwh_room_day=VALUES(electricity_intensity_kwh_room_day), cooling_share=VALUES(cooling_share), dhw_l_orn=VALUES(dhw_l_orn), occupancy_percent=VALUES(occupancy_percent), grid_import_tariff_lkr_kwh=VALUES(grid_import_tariff_lkr_kwh), selected_biomass_fuel=VALUES(selected_biomass_fuel), selected_biomass_delivered_cost_lkr_kg=VALUES(selected_biomass_delivered_cost_lkr_kg), selected_biomass_lhv_kwh_kg=VALUES(selected_biomass_lhv_kwh_kg), notes=VALUES(notes)`, [
+    await pool.query(`INSERT INTO cluster_defaults (cluster_name, electricity_intensity_kwh_room_day, cooling_share, dhw_l_orn, occupancy_percent, grid_import_tariff_lkr_kwh, selected_biomass_fuel, selected_biomass_delivered_cost_lkr_kg, selected_biomass_lhv_kwh_kg, monthly_factors_json, notes)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE electricity_intensity_kwh_room_day=VALUES(electricity_intensity_kwh_room_day), cooling_share=VALUES(cooling_share), dhw_l_orn=VALUES(dhw_l_orn), occupancy_percent=VALUES(occupancy_percent), grid_import_tariff_lkr_kwh=VALUES(grid_import_tariff_lkr_kwh), selected_biomass_fuel=VALUES(selected_biomass_fuel), selected_biomass_delivered_cost_lkr_kg=VALUES(selected_biomass_delivered_cost_lkr_kg), selected_biomass_lhv_kwh_kg=VALUES(selected_biomass_lhv_kwh_kg), monthly_factors_json=VALUES(monthly_factors_json), notes=VALUES(notes)`, [
       r.cluster_name,
       r.electricity_intensity_kwh_room_day,
       r.cooling_share,
@@ -117,22 +126,32 @@ router.post('/clusters', async (req, res, next) => {
       r.selected_biomass_fuel || '',
       r.selected_biomass_delivered_cost_lkr_kg,
       r.selected_biomass_lhv_kwh_kg,
+      monthlyFactorsJson(r),
       r.notes || ''
     ]);
     res.json({ message: 'Cluster default saved' });
   } catch (err) { next(err); }
 });
 
+router.delete('/clusters/:id', async (req, res, next) => {
+  try {
+    const [result] = await pool.query('DELETE FROM cluster_defaults WHERE id=?', [req.params.id]);
+    if (!result.affectedRows) return res.status(404).json({ message: 'Cluster not found' });
+    res.json({ message: 'Cluster deleted' });
+  } catch (err) { next(err); }
+});
+
 router.post('/clusters/upload', upload.single('file'), async (req, res, next) => {
   try {
+    await ensureClusterMonthlyFactorsColumn();
     const rows = await parseUploadedTable(req.file.buffer, req.file.originalname);
     let updated = 0;
     for (const row of rows) {
       const clusterName = pick(row, ['cluster_name', 'cluster', 'hotel_cluster', 'location']);
       if (!clusterName) continue;
-      await pool.query(`INSERT INTO cluster_defaults (cluster_name, electricity_intensity_kwh_room_day, cooling_share, dhw_l_orn, occupancy_percent, grid_import_tariff_lkr_kwh, selected_biomass_fuel, selected_biomass_delivered_cost_lkr_kg, selected_biomass_lhv_kwh_kg, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE electricity_intensity_kwh_room_day=VALUES(electricity_intensity_kwh_room_day), cooling_share=VALUES(cooling_share), dhw_l_orn=VALUES(dhw_l_orn), occupancy_percent=VALUES(occupancy_percent), grid_import_tariff_lkr_kwh=VALUES(grid_import_tariff_lkr_kwh), selected_biomass_fuel=VALUES(selected_biomass_fuel), selected_biomass_delivered_cost_lkr_kg=VALUES(selected_biomass_delivered_cost_lkr_kg), selected_biomass_lhv_kwh_kg=VALUES(selected_biomass_lhv_kwh_kg), notes=VALUES(notes)`, [
+      await pool.query(`INSERT INTO cluster_defaults (cluster_name, electricity_intensity_kwh_room_day, cooling_share, dhw_l_orn, occupancy_percent, grid_import_tariff_lkr_kwh, selected_biomass_fuel, selected_biomass_delivered_cost_lkr_kg, selected_biomass_lhv_kwh_kg, monthly_factors_json, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE electricity_intensity_kwh_room_day=VALUES(electricity_intensity_kwh_room_day), cooling_share=VALUES(cooling_share), dhw_l_orn=VALUES(dhw_l_orn), occupancy_percent=VALUES(occupancy_percent), grid_import_tariff_lkr_kwh=VALUES(grid_import_tariff_lkr_kwh), selected_biomass_fuel=VALUES(selected_biomass_fuel), selected_biomass_delivered_cost_lkr_kg=VALUES(selected_biomass_delivered_cost_lkr_kg), selected_biomass_lhv_kwh_kg=VALUES(selected_biomass_lhv_kwh_kg), monthly_factors_json=VALUES(monthly_factors_json), notes=VALUES(notes)`, [
         clusterName,
         toNumber(pick(row, ['electricity_intensity_kwh_room_day', 'electricity_intensity', 'kwh_room_day'], 50), 50),
         toNumber(pick(row, ['cooling_share'], 0.59147046), 0.59147046),
@@ -142,6 +161,7 @@ router.post('/clusters/upload', upload.single('file'), async (req, res, next) =>
         pick(row, ['selected_biomass_fuel', 'biomass_fuel'], 'Gliricidia'),
         toNumber(pick(row, ['selected_biomass_delivered_cost_lkr_kg', 'biomass_price', 'biomass_cost'], 35), 35),
         toNumber(pick(row, ['selected_biomass_lhv_kwh_kg', 'biomass_lhv'], 4.0), 4.0),
+        monthlyFactorsJson(row),
         pick(row, ['notes', 'remarks'], '')
       ]);
       updated += 1;

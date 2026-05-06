@@ -47,6 +47,15 @@ function makeMonthlyRows(profile = []) {
   });
 }
 
+function normalizeMonthlyFactors(value) {
+  const defaults = [1.42, 1.28, 1.03, 1.20, 0.94, 0.45, 0.64, 0.89, 0.78, 0.98, 1.06, 1.31];
+  const source = Array.isArray(value) ? value : [];
+  return defaults.map((fallback, index) => {
+    const n = Number(source[index]);
+    return Number.isFinite(n) && n > 0 ? n : fallback;
+  });
+}
+
 function hasMonthlyLoadData(rows) {
   return rows.some((row) =>
     ['hotel_electricity_kwh', 'cooling_thermal_kwh', 'heating_thermal_kwh'].some((field) =>
@@ -109,7 +118,10 @@ const [showMonthlyProfile, setShowMonthlyProfile] = useState(false);
         Number(cluster.selected_biomass_delivered_cost_lkr_kg || 0),
   
       selected_biomass_lhv_kwh_kg:
-        Number(cluster.selected_biomass_lhv_kwh_kg || 0)
+        Number(cluster.selected_biomass_lhv_kwh_kg || 0),
+
+      monthly_factors:
+        normalizeMonthlyFactors(cluster.monthly_factors)
     }));
   
     if (showMessage) {

@@ -14,8 +14,7 @@ const links = [
   ['/sensitivity', 'Sensitivity'],
   ['/pscad', 'Design Analysis'],
   ['/reports', 'Report'],
-  ['/projects', 'Saved Case Studies'],
-  ['/methodology', 'Methodology & Equations']
+  ['/projects', 'Saved Case Studies']
 ];
 
 export default function Navbar() {
@@ -30,6 +29,7 @@ export default function Navbar() {
     </div>
     <nav>
       {links.map(([to,label]) => <NavLink key={to} to={to}>{label}</NavLink>)}
+      {isAdmin && <NavLink to="/methodology">Methodology & Equations</NavLink>}
       {isAdmin && <NavLink to="/cluster-data">Cluster Data</NavLink>}
       {isAdmin && <NavLink to="/admin">Admin Settings</NavLink>}
     </nav>

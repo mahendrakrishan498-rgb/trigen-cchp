@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import PageHeader from '../components/PageHeader';
 import { API_BASE, apiRequest, getToken } from '../api';
 
+const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const defaultMonthlyFactors = [1.42, 1.28, 1.03, 1.20, 0.94, 0.45, 0.64, 0.89, 0.78, 0.98, 1.06, 1.31];
+
 const blank = {
   cluster_name: '',
   electricity_intensity_kwh_room_day: 50,
@@ -12,6 +15,7 @@ const blank = {
   selected_biomass_fuel: 'Gliricidia',
   selected_biomass_delivered_cost_lkr_kg: 35,
   selected_biomass_lhv_kwh_kg: 4.0,
+  monthly_factors: defaultMonthlyFactors,
   notes: ''
 };
 
@@ -21,7 +25,7 @@ export default function ClusterData() {
   const [message, setMessage] = useState('');
 
   async function load() {
-    setClusters(await apiRequest('/admin/clusters'));
+    setClusters(await apiRequest('/clusters'));
   }
 
   useEffect(() => { load().catch((e)=>setMessage(e.message)); }, []);
@@ -32,13 +36,34 @@ export default function ClusterData() {
     setClusters(copy);
   }
 
+  function updateMonthlyFactor(i, monthIndex, value) {
+    const copy = [...clusters];
+    const factors = [...(copy[i].monthly_factors || defaultMonthlyFactors)];
+    factors[monthIndex] = Number(value);
+    copy[i] = { ...copy[i], monthly_factors: factors };
+    setClusters(copy);
+  }
+
   function setNew(key, value) {
     setNewRow({ ...newRow, [key]: key === 'cluster_name' || key === 'selected_biomass_fuel' || key === 'notes' ? value : Number(value) });
+  }
+
+  function setNewMonthlyFactor(monthIndex, value) {
+    const factors = [...(newRow.monthly_factors || defaultMonthlyFactors)];
+    factors[monthIndex] = Number(value);
+    setNewRow({ ...newRow, monthly_factors: factors });
   }
 
   async function saveRow(row) {
     await apiRequest(`/admin/clusters/${row.id}`, { method: 'PUT', body: row });
     setMessage(`Updated ${row.cluster_name}`);
+    await load();
+  }
+
+  async function deleteRow(row) {
+    if (!window.confirm(`Delete cluster "${row.cluster_name}"?`)) return;
+    await apiRequest(`/admin/clusters/${row.id}`, { method: 'DELETE' });
+    setMessage(`Deleted ${row.cluster_name}`);
     await load();
   }
 
@@ -104,6 +129,19 @@ export default function ClusterData() {
           </label>
         ))}
       </div>
+      <h4>Monthly load profile factors</h4>
+      <div className="month-factor-grid">
+        {months.map((month, index) => (
+          <label key={month}>{month}
+            <input
+              type="number"
+              step="any"
+              value={(newRow.monthly_factors || defaultMonthlyFactors)[index] ?? ''}
+              onChange={(e)=>setNewMonthlyFactor(index, e.target.value)}
+            />
+          </label>
+        ))}
+      </div>
       <button onClick={addRow}>Add / Update Cluster</button>
     </section>
 
@@ -111,7 +149,7 @@ export default function ClusterData() {
       <h3>Existing Cluster Defaults</h3>
       <table className="data-table cluster-table">
         <thead>
-          <tr>{fields.map(([key,label])=><th key={key}>{label}</th>)}<th>Action</th></tr>
+          <tr>{fields.map(([key,label])=><th key={key}>{label}</th>)}{months.map((month)=><th key={month}>{month} factor</th>)}<th>Action</th></tr>
         </thead>
         <tbody>
           {clusters.map((row, i)=>(
@@ -121,7 +159,22 @@ export default function ClusterData() {
                   <input value={row[key] ?? ''} onChange={(e)=>updateRow(i, key, e.target.value)} />
                 </td>
               ))}
-              <td><button onClick={()=>saveRow(row)}>Update</button></td>
+              {months.map((month, monthIndex)=>(
+                <td key={month}>
+                  <input
+                    type="number"
+                    step="any"
+                    value={(row.monthly_factors || defaultMonthlyFactors)[monthIndex] ?? ''}
+                    onChange={(e)=>updateMonthlyFactor(i, monthIndex, e.target.value)}
+                  />
+                </td>
+              ))}
+              <td>
+                <div className="button-row cluster-actions">
+                  <button onClick={()=>saveRow(row)}>Update</button>
+                  <button className="danger" onClick={()=>deleteRow(row)}>Delete</button>
+                </div>
+              </td>
             </tr>
           ))}
         </tbody>

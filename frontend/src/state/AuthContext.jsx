@@ -9,8 +9,8 @@ export function AuthProvider({ children }) {
     return raw ? JSON.parse(raw) : null;
   });
 
-  async function login(email, password) {
-    const data = await apiRequest('/auth/login', { method: 'POST', body: { email, password } });
+  async function login(email, password, role = 'user') {
+    const data = await apiRequest('/auth/login', { method: 'POST', body: { email, password, role } });
     localStorage.setItem('trigen_token', data.token);
     localStorage.setItem('trigen_user', JSON.stringify(data.user));
     setUser(data.user);
@@ -25,6 +25,14 @@ export function AuthProvider({ children }) {
     return data.user;
   }
 
+  async function loginWithGoogle(credential) {
+    const data = await apiRequest('/auth/google', { method: 'POST', body: { credential } });
+    localStorage.setItem('trigen_token', data.token);
+    localStorage.setItem('trigen_user', JSON.stringify(data.user));
+    setUser(data.user);
+    return data.user;
+  }
+
   function logout() {
     localStorage.removeItem('trigen_token');
     localStorage.removeItem('trigen_user');
@@ -32,7 +40,7 @@ export function AuthProvider({ children }) {
     setUser(null);
   }
 
-  const value = useMemo(() => ({ user, login, register, logout, isAdmin: user?.role === 'admin' }), [user]);
+  const value = useMemo(() => ({ user, login, loginWithGoogle, register, logout, isAdmin: user?.role === 'admin' }), [user]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
