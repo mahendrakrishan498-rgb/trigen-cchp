@@ -8,6 +8,11 @@ const {
   monthlyFactorsJson,
   rowWithMonthlyFactors
 } = require('../services/clusterDefaultsService');
+const {
+  dispatchTemplateCsv,
+  parseDispatchUpload,
+  replaceClusterDispatch15Min
+} = require('../services/clusterDispatch15MinService');
 
 const upload = multer({ storage: multer.memoryStorage() });
 const router = express.Router();
@@ -87,6 +92,12 @@ router.get('/clusters/template', async (req, res) => {
   ].join('\n'));
 });
 
+router.get('/clusters/dispatch15min/template', async (req, res) => {
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', 'attachment; filename="cluster_15min_dispatch_template.csv"');
+  res.send(dispatchTemplateCsv());
+});
+
 router.put('/clusters/:id', async (req, res, next) => {
   try {
     await ensureClusterMonthlyFactorsColumn();
@@ -129,7 +140,8 @@ router.post('/clusters', async (req, res, next) => {
       monthlyFactorsJson(r),
       r.notes || ''
     ]);
-    res.json({ message: 'Cluster default saved' });
+    const [rows] = await pool.query('SELECT id, cluster_name FROM cluster_defaults WHERE cluster_name=?', [r.cluster_name]);
+    res.json({ message: 'Cluster default saved', id: rows[0]?.id, cluster: rows[0] || null });
   } catch (err) { next(err); }
 });
 
@@ -138,6 +150,26 @@ router.delete('/clusters/:id', async (req, res, next) => {
     const [result] = await pool.query('DELETE FROM cluster_defaults WHERE id=?', [req.params.id]);
     if (!result.affectedRows) return res.status(404).json({ message: 'Cluster not found' });
     res.json({ message: 'Cluster deleted' });
+  } catch (err) { next(err); }
+});
+
+router.post('/clusters/:id/dispatch15min/upload', upload.single('file'), async (req, res, next) => {
+  try {
+    const clusterId = Number(req.params.id);
+    const [clusters] = await pool.query('SELECT id, cluster_name FROM cluster_defaults WHERE id=?', [clusterId]);
+    if (!clusters.length) return res.status(404).json({ message: 'Cluster not found' });
+
+    const parsed = await parseDispatchUpload(req.file);
+    await replaceClusterDispatch15Min(clusterId, parsed.rows);
+
+    res.json({
+      message: '15-minute dispatch data uploaded',
+      cluster_id: clusterId,
+      cluster_name: clusters[0].cluster_name,
+      saved_rows: parsed.rows.length,
+      warning: parsed.warnings[0] || '',
+      warnings: parsed.warnings
+    });
   } catch (err) { next(err); }
 });
 

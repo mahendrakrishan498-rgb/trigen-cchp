@@ -49,7 +49,7 @@ backend/uploads/*
 # MySQL / Database
 # =========================
 *.sql
-!mysql/schema.sql   # keep schema if you want to track structure
+!mysql/schema.sql
 
 # =========================
 # Temporary files

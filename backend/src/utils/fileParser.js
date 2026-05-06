@@ -8,7 +8,8 @@ function normalizeKey(key) {
     .toLowerCase()
     .replace(/\s+/g, '_')
     .replace(/[()/%]/g, '')
-    .replace(/[^a-z0-9_]/g, '');
+    .replace(/[^a-z0-9_]/g, '')
+    .replace(/^_+|_+$/g, '');
 }
 
 function normalizeRow(row) {

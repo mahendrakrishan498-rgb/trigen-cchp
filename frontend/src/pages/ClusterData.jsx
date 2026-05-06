@@ -22,6 +22,7 @@ const blank = {
 export default function ClusterData() {
   const [clusters, setClusters] = useState([]);
   const [newRow, setNewRow] = useState(blank);
+  const [newDispatchFile, setNewDispatchFile] = useState(null);
   const [message, setMessage] = useState('');
 
   async function load() {
@@ -67,30 +68,59 @@ export default function ClusterData() {
     await load();
   }
 
+  async function uploadDispatchByClusterId(clusterId, clusterName, file) {
+    if (!file) return null;
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch(`${API_BASE}/admin/clusters/${clusterId}/dispatch15min/upload`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${getToken()}` },
+      body: form
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.message || '15-minute dispatch upload failed');
+
+    const warning = data.warning ? ` Warning: ${data.warning}` : '';
+    return ` Uploaded 15-minute dispatch data for ${clusterName}. Saved rows: ${data.saved_rows}.${warning}`;
+  }
+
   async function addRow() {
     if (!newRow.cluster_name) {
       setMessage('Please enter cluster name.');
       return;
     }
-    await apiRequest('/admin/clusters', { method: 'POST', body: newRow });
-    setMessage('Cluster saved.');
+    const data = await apiRequest('/admin/clusters', { method: 'POST', body: newRow });
+    if (newDispatchFile && !data.id) throw new Error('Cluster saved, but the saved cluster id was not returned for dispatch upload.');
+    const dispatchMessage = await uploadDispatchByClusterId(data.id, newRow.cluster_name, newDispatchFile);
+    setMessage(`Cluster saved.${dispatchMessage || ''}`);
     setNewRow(blank);
+    setNewDispatchFile(null);
     await load();
   }
 
-  async function uploadFile(file) {
-    if (!file) return;
-    const form = new FormData();
-    form.append('file', file);
-    const res = await fetch(`${API_BASE}/admin/clusters/upload`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${getToken()}` },
-      body: form
+  async function downloadTemplate(path, filename) {
+    const res = await fetch(`${API_BASE}${path}`, {
+      headers: { Authorization: `Bearer ${getToken()}` }
     });
-    if (!res.ok) throw new Error('Cluster upload failed');
-    const data = await res.json();
-    setMessage(`${data.message}. Updated rows: ${data.updated}`);
-    await load();
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || 'Template download failed');
+    }
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  async function uploadDispatchFile(row, file) {
+    const dispatchMessage = await uploadDispatchByClusterId(row.id, row.cluster_name, file);
+    if (dispatchMessage) setMessage(dispatchMessage.trim());
   }
 
   const fields = [
@@ -107,17 +137,21 @@ export default function ClusterData() {
   ];
 
   return <>
-    <PageHeader title="Cluster Data" subtitle="Update hotel cluster defaults used by the Input tab. Download the template, fill values, upload it, or edit the table manually." />
+    <PageHeader title="Cluster Data" subtitle="Update hotel cluster defaults and attach 15-minute dispatch Excel/CSV data for each cluster." />
 
     {message && <div className="success">{message}</div>}
 
     <section className="panel">
-      <h3>Template Upload</h3>
+      <h3>Template Download</h3>
       <div className="button-row">
-        <a className="button-link" href={`${API_BASE}/admin/clusters/template`} target="_blank" rel="noreferrer">Download Cluster Template</a>
-        <input type="file" accept=".csv,.xlsx,.xls" onChange={(e)=>uploadFile(e.target.files[0]).catch((err)=>setMessage(err.message))} />
+        <button
+          type="button"
+          onClick={()=>downloadTemplate('/admin/clusters/dispatch15min/template', 'cluster_15min_dispatch_template.csv').catch((err)=>setMessage(err.message))}
+        >
+          Download 15-Minute Dispatch Template
+        </button>
       </div>
-      <p className="muted">Supported columns: cluster_name, electricity_intensity_kwh_room_day, cooling_share, dhw_l_orn, occupancy_percent, grid_import_tariff_lkr_kwh, selected_biomass_fuel, selected_biomass_delivered_cost_lkr_kg, selected_biomass_lhv_kwh_kg, notes.</p>
+      <p className="muted">For 15-minute dispatch uploads, use 96 rows with: Time Fraction (-), Hotel Electric factor, Cooling Thermal factor.</p>
     </section>
 
     <section className="panel">
@@ -142,6 +176,14 @@ export default function ClusterData() {
           </label>
         ))}
       </div>
+      <label className="dispatch-upload-label">
+        Upload 15-Minute Dispatch Data
+        <input
+          type="file"
+          accept=".xlsx,.xls,.csv"
+          onChange={(e)=>setNewDispatchFile(e.target.files[0] || null)}
+        />
+      </label>
       <button onClick={addRow}>Add / Update Cluster</button>
     </section>
 
@@ -174,6 +216,14 @@ export default function ClusterData() {
                   <button onClick={()=>saveRow(row)}>Update</button>
                   <button className="danger" onClick={()=>deleteRow(row)}>Delete</button>
                 </div>
+                <label className="dispatch-upload-label">
+                  Upload 15-Minute Dispatch Data
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    onChange={(e)=>uploadDispatchFile(row, e.target.files[0]).catch((err)=>setMessage(err.message))}
+                  />
+                </label>
               </td>
             </tr>
           ))}

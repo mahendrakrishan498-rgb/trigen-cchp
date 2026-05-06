@@ -2,6 +2,7 @@ const express = require('express');
 const PDFDocument = require('pdfkit');
 const pool = require('../db');
 const { authRequired } = require('../middleware/auth');
+const { getClusterDispatch15Min } = require('../services/clusterDispatch15MinService');
 const path = require('path');
 const fs = require('fs');
 
@@ -38,6 +39,11 @@ function moneyShort(value) {
   if (a >= 1e3) return `${(x / 1e3).toFixed(1)}k LKR`;
 
   return `${x.toFixed(0)} LKR`;
+}
+
+function numberValue(v, fallback = 0) {
+  const x = Number(v);
+  return Number.isFinite(x) ? x : fallback;
 }
 
 function titleCase(s) {
@@ -750,6 +756,124 @@ function multiLineChart(doc, x, y, w, h, rows, title) {
 
   return y + h + 28;
 }
+
+function compactDispatchChart(doc, x, y, w, h, rows, title, series) {
+  if (!rows || !rows.length) return y;
+
+  const allValues = [];
+  rows.forEach((row) => {
+    series.forEach((s) => allValues.push(numberValue(row[s.key], 0)));
+  });
+
+  const max = Math.max(...allValues, 1);
+  const min = Math.min(...allValues, 0);
+  const range = Math.max(max - min, 1);
+
+  doc
+    .font('Helvetica-Bold')
+    .fontSize(8.5)
+    .fillColor('#16212c')
+    .text(title, x, y - 12, { width: w });
+
+  doc.rect(x, y, w, h).stroke('#dce7ef');
+
+  const leftPad = 30;
+  const rightPad = 8;
+  const topPad = 10;
+  const bottomPad = 18;
+  const chartX = x + leftPad;
+  const chartY = y + topPad;
+  const chartW = w - leftPad - rightPad;
+  const chartH = h - topPad - bottomPad;
+
+  for (let i = 0; i <= 3; i += 1) {
+    const gy = chartY + chartH - (i / 3) * chartH;
+    doc
+      .strokeColor('#edf2f7')
+      .lineWidth(0.4)
+      .moveTo(chartX, gy)
+      .lineTo(chartX + chartW, gy)
+      .stroke();
+  }
+
+  series.forEach((s) => {
+    let last = null;
+    rows.forEach((row, index) => {
+      const px = chartX + (index / Math.max(rows.length - 1, 1)) * chartW;
+      const py = chartY + chartH - ((numberValue(row[s.key], 0) - min) / range) * chartH;
+
+      if (last) {
+        doc
+          .moveTo(last.x, last.y)
+          .lineTo(px, py)
+          .strokeColor(s.color)
+          .lineWidth(1.1)
+          .stroke();
+      }
+
+      last = { x: px, y: py };
+    });
+  });
+
+  doc
+    .font('Helvetica')
+    .fontSize(6.5)
+    .fillColor('#667085')
+    .text('0h', chartX - 5, y + h - 13, { width: 18 })
+    .text('24h', chartX + chartW - 12, y + h - 13, { width: 24, align: 'right' })
+    .text(`min ${n(min, 1)} / max ${n(max, 1)}`, x + 4, y + 4, { width: w - 8 });
+
+  let lx = x + 4;
+  const ly = y + h + 4;
+  series.forEach((s) => {
+    doc.rect(lx, ly + 2, 7, 3).fill(s.color);
+    doc
+      .font('Helvetica')
+      .fontSize(6.5)
+      .fillColor('#667085')
+      .text(s.label, lx + 10, ly, { width: 95 });
+    lx += Math.min(110, Math.max(62, s.label.length * 4.2));
+  });
+
+  doc
+    .strokeColor('#000000')
+    .fillColor('#16212c')
+    .lineWidth(1);
+
+  return y + h + 18;
+}
+
+function buildReportDispatchRows(rawRows, result) {
+  const rows = Array.isArray(rawRows) && rawRows.length ? rawRows : (result.dispatch_15min || []);
+  if (!rows.length) return [];
+
+  const designedTurbineKw = numberValue(result.system_sizing?.turbine_kw, 0);
+  const fallbackRatedPower = Math.max(...rows.map((row) => numberValue(row.turbine_output_kw, 0)), 800);
+  const ratedPowerKw = designedTurbineKw || fallbackRatedPower;
+  const avgElectricKw = numberValue(result.step01_load_profile?.annual_electricity_kwh, 0) / 8760;
+  const avgCoolingKw = numberValue(result.step01_load_profile?.annual_cooling_thermal_kwh, 0) / 8760;
+
+  return rows.slice(0, 96).map((row, index) => {
+    const electricFactor = numberValue(row.hotel_electric_factor || row.electric_factor, 0) || 1;
+    const coolingFactor = numberValue(row.cooling_thermal_factor || row.cooling_factor, 0) || 1;
+    const hotelElectricKw = numberValue(row.hotel_electric_kw, 0) || avgElectricKw * electricFactor;
+    const coolingThermalKw = numberValue(row.cooling_thermal_kw, 0) || avgCoolingKw * coolingFactor;
+    const turbineOutputKw = designedTurbineKw || numberValue(row.turbine_output_kw, 0);
+    const loadFraction = ratedPowerKw > 0 ? hotelElectricKw / ratedPowerKw : 0;
+    const timeHour = numberValue(row.time_hour ?? row.hour, index / 4);
+
+    return {
+      time_hour: timeHour,
+      hotel_electric_kw: hotelElectricKw,
+      cooling_thermal_kw: coolingThermalKw,
+      turbine_output_kw: turbineOutputKw,
+      voltage_output_v: Math.max(360, 400 * (1 - 0.04 * loadFraction)),
+      frequency_hz: Math.max(49, 50 * (1 - 0.02 * loadFraction)),
+      grid_import_kw: Math.max(0, hotelElectricKw - turbineOutputKw),
+      grid_export_kw: Math.max(0, turbineOutputKw - hotelElectricKw)
+    };
+  });
+}
 router.get('/:projectId/pdf', async (req, res, next) => {
   try {
     const [projects] = await pool.query(
@@ -780,6 +904,15 @@ router.get('/:projectId/pdf', async (req, res, next) => {
       'SELECT time_s, voltage_v, frequency_hz, power_kw, exported_kw FROM pscad_results WHERE project_id=? AND user_id=? ORDER BY time_s LIMIT 400',
       [req.params.projectId, req.user.id]
     );
+
+    let clusterDispatch = [];
+    const reportLocation = project.location || inputs.location || '';
+    if (reportLocation) {
+      const [clusters] = await pool.query('SELECT id FROM cluster_defaults WHERE cluster_name=? LIMIT 1', [reportLocation]);
+      if (clusters.length) {
+        clusterDispatch = await getClusterDispatch15Min(clusters[0].id);
+      }
+    }
 
     const doc = new PDFDocument({
       margin: 42,
@@ -1166,54 +1299,73 @@ doc.y = y0 + 170;
       .font('Helvetica-Bold')
       .fontSize(10)
       .fillColor('#16212c')
-      .text('Latest BMS Summary');
+      .text('15-Minute CCHP Dispatch Validation');
 
     doc.moveDown(0.35);
 
-    if (bms[0]) {
-      table(doc, Object.entries(parseJson(bms[0].summary_json, {})).map(([k, v]) => ({
-        k: titleCase(k),
-        v
-      })), [
-        { label: 'BMS item', get: (r) => r.k },
-        { label: 'Value', get: (r) => typeof r.v === 'number' ? n(r.v, 3) : r.v }
-      ], {
-        widths: [260, 250],
-        maxRows: 12
-      });
+    const dispatchValidationRows = buildReportDispatchRows(clusterDispatch, result);
+
+    if (dispatchValidationRows.length) {
+      doc
+        .font('Helvetica')
+        .fontSize(8.8)
+        .fillColor('#667085')
+        .text(
+          'The following 15-minute profiles use the selected cluster factors and the current system design turbine capacity. Grid interaction, voltage and frequency are recalculated from the simulated dispatch.',
+          { width: 510, align: 'justify' }
+        );
+
+      doc.moveDown(0.9);
+
+      const chartW = 245;
+      const chartH = 112;
+      const leftX = 42;
+      const rightX = 307;
+      let chartY = doc.y + 14;
+
+      compactDispatchChart(doc, leftX, chartY, chartW, chartH, dispatchValidationRows, 'Hotel Electric Load Profile (kW)', [
+        { key: 'hotel_electric_kw', label: 'Hotel electric', color: '#0b74b8' }
+      ]);
+      compactDispatchChart(doc, rightX, chartY, chartW, chartH, dispatchValidationRows, 'Designed Turbine Output (kW)', [
+        { key: 'turbine_output_kw', label: 'Turbine output', color: '#6941c6' }
+      ]);
+
+      chartY += chartH + 42;
+      compactDispatchChart(doc, leftX, chartY, chartW, chartH, dispatchValidationRows, 'Cooling Thermal Load Profile (kW cool)', [
+        { key: 'cooling_thermal_kw', label: 'Cooling thermal', color: '#14a879' }
+      ]);
+      compactDispatchChart(doc, rightX, chartY, chartW, chartH, dispatchValidationRows, 'Generator Voltage Response (V)', [
+        { key: 'voltage_output_v', label: 'Voltage', color: '#f79009' }
+      ]);
+
+      chartY += chartH + 42;
+      compactDispatchChart(doc, leftX, chartY, chartW, chartH, dispatchValidationRows, 'Generator Frequency Response (Hz)', [
+        { key: 'frequency_hz', label: 'Frequency', color: '#b42318' }
+      ]);
+      doc.y = compactDispatchChart(doc, rightX, chartY, chartW, chartH, dispatchValidationRows, 'Grid Import and Export Profile (kW)', [
+        { key: 'grid_import_kw', label: 'Grid import', color: '#0b74b8' },
+        { key: 'grid_export_kw', label: 'Grid export', color: '#14a879' }
+      ]);
     } else {
       doc
         .font('Helvetica')
         .fontSize(9)
         .fillColor('#667085')
-        .text('No BMS upload attached.');
+        .text('No 15-minute dispatch factors are available for the selected cluster.');
 
       doc.moveDown(0.8);
     }
 
-    doc
-      .font('Helvetica-Bold')
-      .fontSize(10)
-      .fillColor('#16212c')
-      .text('Design Analysis / PSCAD Data');
-
-    doc.moveDown(0.35);
-
     if (pscad.length) {
-      doc.y = lineChart(
-        doc,
-        42,
-        doc.y + 18,
-        510,
-        145,
-        pscad,
-        'time_s',
-        'power_kw',
-        'Generator Power (kW)',
-        '#0b74b8'
-      );
+      doc
+        .font('Helvetica-Bold')
+        .fontSize(9.5)
+        .fillColor('#16212c')
+        .text('Uploaded PSCAD / Dynamic Validation Snapshot');
 
-      table(doc, pscad.slice(0, 20), [
+      doc.moveDown(0.35);
+
+      table(doc, pscad.slice(0, 12), [
         { label: 'Time s', get: (r) => n(r.time_s, 2) },
         { label: 'Voltage V', get: (r) => n(r.voltage_v, 2) },
         { label: 'Freq Hz', get: (r) => n(r.frequency_hz, 3) },
@@ -1221,16 +1373,8 @@ doc.y = y0 + 170;
         { label: 'Export kW', get: (r) => n(r.exported_kw, 2) }
       ], {
         widths: [70, 100, 95, 120, 125],
-        maxRows: 20
+        maxRows: 12
       });
-    } else {
-      doc
-        .font('Helvetica')
-        .fontSize(9)
-        .fillColor('#667085')
-        .text('No PSCAD/design analysis upload attached.');
-
-      doc.moveDown(0.8);
     }
 
     doc
@@ -1264,15 +1408,16 @@ doc.y = y0 + 170;
     section(doc, '11. Methodology Notes');
 
     const notes = [
-      'Step01 follows the Excel energy segregation logic: annual electricity is benchmark-based or BMS/measured; cooling electricity is multiplied by existing chiller COP; heating is DHW plus laundry/process heat.',
-    
-      'Step02 follows the Excel dual-chiller and extraction steam turbine selection logic: peak cooling is converted to RT, main/backup chillers are selected from candidate sizes, and the first suitable turbine is selected from candidate kW values.',
-    
-      'Step03 follows the uploaded workbook savings-based model: avoided hotel energy cost plus export revenue are benefits; biomass fuel, O&M, insurance, overhaul and CAPEX are project costs.',
-    
-      'Export revenue is year-linked using the export tariff schedule. Year 1 uses the selected financial year tariff, while later cash-flow years use their corresponding tariff rows.',
-    
-      'CO2 reduction compares baseline grid/heating emissions with project import emissions, biomass emissions and exported-grid displacement credit.'
+       'The energy demand assessment follows the segregation methodology adopted in the Excel-based model. Annual electricity demand is estimated using benchmark values or uploaded BMS/measured data. Cooling demand is derived using the existing chiller COP, while thermal demand is estimated from domestic hot water, laundry, and process heat requirements.',
+
+  'The technical design methodology evaluates the required CCHP system capacity based on hotel energy demand. Peak cooling demand is converted into refrigeration tons (RT), suitable main and backup absorption chillers are selected from predefined capacity options, and the extraction steam turbine is selected based on the most appropriate rated power range.',
+
+  'The financial evaluation follows a savings-based project assessment approach. Project benefits are determined from avoided hotel energy costs and electricity export revenue, while project costs include biomass fuel consumption, operation and maintenance, insurance, major overhaul allowances, and capital expenditure.',
+
+  'Electricity export revenue is calculated using a year-linked export tariff structure. The initial project year applies the tariff corresponding to the selected financial year, while subsequent cash-flow years apply the relevant tariff values from the applicable yearly tariff schedule.',
+
+  'The emissions assessment compares baseline emissions from grid electricity and conventional thermal energy supply with project emissions from grid imports and biomass use. Exported electricity is treated as a grid-displacement credit, thereby reducing the net emissions of the proposed CCHP system.'
+
     ];
     
     notes.forEach((m, i) => {

@@ -30,7 +30,29 @@ function irr(cashFlows) { let low = -0.9, high = 2; for (let i=0;i<120;i+=1) { c
 function exportTariffForYear(year, table = EXPORT_TARIFFS) { const row = table.find((r) => Number(r.year) === Number(year)) || table[table.length-1]; return n(row.om) + n(row.fuel) + n(row.fixed); }
 function annuity(rate, years) { return rate * ((1 + rate) ** years) / (((1 + rate) ** years) - 1); }
 
-function make15MinProfile() {
+function normalizeInput15MinProfile(inputProfile) {
+  if (!Array.isArray(inputProfile) || !inputProfile.length) return null;
+
+  const rows = inputProfile.slice(0, 96).map((row, index) => {
+    const electric = n(row.electric_factor ?? row.hotel_electric_factor ?? row.hotelElectricFactor, 0);
+    const cooling = n(row.cooling_factor ?? row.cooling_thermal_factor ?? row.coolingThermalFactor, 0);
+    return {
+      time_fraction: n(row.time_fraction, index / 96),
+      hour: n(row.hour ?? row.time_hour, index / 4),
+      electric_factor: electric > 0 ? electric : 1,
+      cooling_factor: cooling > 0 ? cooling : 1
+    };
+  });
+
+  if (!rows.some((row) => row.electric_factor > 0 || row.cooling_factor > 0)) return null;
+
+  return rows;
+}
+
+function make15MinProfile(inputProfile = null) {
+  const supplied = normalizeInput15MinProfile(inputProfile);
+  if (supplied) return supplied;
+
   const arr = [];
   for (let i=0;i<96;i+=1) {
     const h = i / 4;
@@ -130,7 +152,7 @@ function calculate(input = {}, settings = {}, equipmentRows = [], exportTariffs 
   const laundryHeat = laundryDieselLitres * dieselThermalKwhL;
   const annualHeatingDemand = n(input.measured_annual_heating_kwh, 0) || dhwHeat + laundryHeat;
 
-  const profile = make15MinProfile();
+  const profile = make15MinProfile(input.dispatch_15min_profile || input.dispatch_15min_factors);
   const avgElectricKw = annualElectricity / 8760;
   const avgCoolingThermalKw = annualCoolingThermal / 8760;
   const peakElectricKw = Math.max(...profile.map((p)=>avgElectricKw*p.electric_factor));
@@ -279,7 +301,7 @@ function calculate(input = {}, settings = {}, equipmentRows = [], exportTariffs 
 
   return {
     workbook_version:'Step03 South west yearly export tariff model',
-    inputs_used:{ rooms, occupancy_percent:round(occupancy*100,2), configuration:'extraction_steam_turbine', financial_year:projectYear, analysis_period_years:analysisPeriod, discount_rate:discountRate, escalation_rate:escalation, grid_import_tariff_lkr_kwh:gridImportTariff, year1_export_tariff_lkr_kwh:round(exportTariffYear1,2), selected_biomass_fuel:biomassFuelType, selected_biomass_cost_lkr_kg:round(selectedBiomassCostKg,2), selected_biomass_lhv_kwh_kg:round(selectedBiomassLhv,2), biomass_fuel_cost_lkr_kwh:round(biomassFuelCostKwh,4) },
+    inputs_used:{ rooms, occupancy_percent:round(occupancy*100,2), configuration:'extraction_steam_turbine', financial_year:projectYear, analysis_period_years:analysisPeriod, discount_rate:discountRate, escalation_rate:escalation, grid_import_tariff_lkr_kwh:gridImportTariff, year1_export_tariff_lkr_kwh:round(exportTariffYear1,2), selected_biomass_fuel:biomassFuelType, selected_biomass_cost_lkr_kg:round(selectedBiomassCostKg,2), selected_biomass_lhv_kwh_kg:round(selectedBiomassLhv,2), biomass_fuel_cost_lkr_kwh:round(biomassFuelCostKwh,4), dispatch_15min_factor_source: (input.dispatch_15min_profile || input.dispatch_15min_factors) ? 'cluster 15-minute factors' : 'default profile' },
     step01_load_profile:{ available_room_nights:round(availableRoomNights), occupied_room_nights:round(occupiedRoomNights), annual_electricity_kwh:round(annualElectricity), annual_cooling_electricity_kwh:round(annualCoolingElectric), annual_cooling_thermal_kwh:round(annualCoolingThermal), dhw_heat_kwh_y:round(dhwHeat), laundry_heat_kwh_y:round(laundryHeat), annual_heating_demand_kwh_th:round(annualHeatingDemand), cooling_share_used:round(finalCoolingShare,4), source:measuredElectricity>0?'BMS/measured data':'benchmark room-based model' },
     load_profile:{ occupied_rooms:round(rooms*occupancy,2), daily_electricity_kwh:round(annualElectricity/365), annual_electricity_kwh:round(annualElectricity), daily_cooling_useful_kwh:round(annualCoolingThermal/365), daily_dhw_thermal_kwh:round(dhwHeat/365), monthly_profile:monthly.map((m)=>({month:m.month,electricity_kwh:m.hotel_electricity_kwh,cooling_kwh:m.cooling_thermal_kwh,dhw_kwh:m.heating_thermal_kwh})) },
     step02_technical_design:{ peak_hotel_electric_kw:round(peakElectricKw,2), peak_cooling_thermal_kw:round(peakCoolingThermalKw,2), peak_cooling_rt:round(peakCoolingRt,2), design_cooling_rt:round(designCoolingRt,2), main_chiller_share:round(mainShare,2), backup_chiller_share:round(backupShare,2), selected_main_chiller_rt:selectedMainRt, selected_backup_chiller_rt:selectedBackupRt, selected_total_absorption_chiller_rt:totalChillerRt, selected_total_absorption_chiller_capacity_kw:round(totalChillerRt*3.517), total_design_chiller_steam_thermal_input_kw:round(totalChillerSteamKw), average_heating_kw:round(avgHeatingKw,2), coincident_heating_kw:round(coincidentHeatingKw,2), total_process_steam_kw:round(totalProcessSteamKw,2), process_steam_flow_kg_h:round(processSteamFlowKgH,2), potential_turbine_output_kw:round(potentialTurbineKw,2), selected_turbine_kw:selectedTurbineKw, selected_turbine_inlet_steam_flow_kg_h:round(selectedTurbineSteamFlowKgH,2), exhaust_steam_design_kg_h:round(exhaustSteamKgH,2) },

@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../db');
 const { ensureClusterMonthlyFactorsColumn, rowWithMonthlyFactors } = require('../services/clusterDefaultsService');
+const { getClusterDispatch15Min } = require('../services/clusterDispatch15MinService');
 
 const router = express.Router();
 
@@ -37,6 +38,23 @@ router.get('/', async (req, res, next) => {
     `);
 
     res.json(rows.map(rowWithMonthlyFactors));
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/:id/dispatch15min', async (req, res, next) => {
+  try {
+    const clusterId = Number(req.params.id);
+    const [clusters] = await pool.query('SELECT id, cluster_name FROM cluster_defaults WHERE id=?', [clusterId]);
+    if (!clusters.length) return res.status(404).json({ message: 'Cluster not found' });
+
+    const rows = await getClusterDispatch15Min(clusterId);
+    res.json({
+      cluster_id: clusterId,
+      cluster_name: clusters[0].cluster_name,
+      rows
+    });
   } catch (err) {
     next(err);
   }

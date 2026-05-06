@@ -86,9 +86,31 @@ const pool = require('../db');
 const { authRequired } = require('../middleware/auth');
 const { calculate } = require('../calcEngine');
 const { getSettingsMap, getEquipmentRows, getExportTariffs, getLatestBmsSummary } = require('../services/settingsService');
+const { getClusterDispatch15Min } = require('../services/clusterDispatch15MinService');
 
 const router = express.Router();
 router.use(authRequired);
+
+async function withClusterDispatchFactors(inputs) {
+  const location = inputs.location || '';
+  if (!location || inputs.dispatch_15min_profile || inputs.dispatch_15min_factors) return inputs;
+
+  const [clusters] = await pool.query('SELECT id FROM cluster_defaults WHERE cluster_name=? LIMIT 1', [location]);
+  if (!clusters.length) return inputs;
+
+  const rows = await getClusterDispatch15Min(clusters[0].id);
+  if (!rows.length) return inputs;
+
+  return {
+    ...inputs,
+    dispatch_15min_profile: rows.map((row) => ({
+      time_fraction: Number(row.time_fraction || 0),
+      time_hour: Number(row.time_hour || 0),
+      electric_factor: Number(row.hotel_electric_factor || 0) || 1,
+      cooling_factor: Number(row.cooling_thermal_factor || 0) || 1
+    }))
+  };
+}
 
 router.post('/preview', async (req, res, next) => {
   try {
@@ -96,12 +118,14 @@ router.post('/preview', async (req, res, next) => {
     const equipment = await getEquipmentRows();
     const tariffs = await getExportTariffs();
 
-    const bms = req.body.project_id
-      ? await getLatestBmsSummary(req.body.project_id, req.user.id)
+    const inputs = await withClusterDispatchFactors(req.body || {});
+
+    const bms = inputs.project_id
+      ? await getLatestBmsSummary(inputs.project_id, req.user.id)
       : null;
 
-      let result = calculate(req.body || {}, settings, equipment, tariffs, bms);
-      result = applyExcelMonthlyProfile(result, req.body || {});
+      let result = calculate(inputs, settings, equipment, tariffs, bms);
+      result = applyExcelMonthlyProfile(result, inputs);
       res.json(result);
   } catch (err) {
     next(err);
@@ -114,7 +138,7 @@ router.post('/save', async (req, res, next) => {
     const equipment = await getEquipmentRows();
     const tariffs = await getExportTariffs();
 
-    const inputs = req.body || {};
+    const inputs = await withClusterDispatchFactors(req.body || {});
     const bms = inputs.project_id
       ? await getLatestBmsSummary(inputs.project_id, req.user.id)
       : null;

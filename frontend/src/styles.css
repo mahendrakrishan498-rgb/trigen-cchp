@@ -339,3 +339,25 @@ nav a:hover {
 .cluster-actions {
   min-width: 170px;
 }
+
+.dispatch-upload-label {
+  color: #405363;
+  font-size: 12px;
+  margin-top: 10px;
+  min-width: 220px;
+}
+
+.dispatch-upload-label input {
+  font-size: 12px;
+  min-width: 220px;
+}
+
+.dispatch-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.dispatch-chart {
+  margin-bottom: 0;
+}
