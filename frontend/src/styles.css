@@ -2,6 +2,9 @@
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: #16212c;
   background: #f4f7fb;
+  --brand-blue: #000000;
+  --brand-blue-deep: #000000;
+  --brand-blue-soft: #222222;
 }
 * { box-sizing: border-box; }
 body { margin: 0; }
@@ -14,23 +17,50 @@ button.danger { background: #b42318; margin-left: 6px; }
 .link-button { background: transparent; color: #0c6b52; padding: 6px; }
 input, select { width: 100%; border: 1px solid #d7e1ea; border-radius: 10px; padding: 10px; margin-top: 6px; background: white; }
 label { display: block; font-weight: 650; font-size: 13px; color: #405363; margin-bottom: 11px; }
-.app-layout { display: flex; min-height: 100vh; }
-.sidebar { width: 275px; background: #0d2130; color: white; padding: 20px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
-.brand { display: flex; gap: 12px; align-items: center; margin-bottom: 22px; }
-.logo { background: #14a879; color: white; width: 52px; height: 52px; border-radius: 16px; display: grid; place-items: center; font-weight: 900; }
+.app-layout { display: flex; min-height: 100vh; background: #f4f4f4; }
+.sidebar {
+  width: 285px;
+  background: #000000;
+  color: white;
+  padding: 22px 18px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  box-shadow: 8px 0 24px rgba(0,0,0,.14);
+}
+.brand { display: flex; gap: 12px; align-items: center; margin-bottom: 24px; padding: 4px 6px 18px; border-bottom: 1px solid rgba(255,255,255,.14); }
+.logo { background: #ffffff; color: #000000; width: 52px; height: 52px; border-radius: 16px; display: grid; place-items: center; font-weight: 900; box-shadow: 0 10px 20px rgba(0,0,0,.18); }
 .brand h2 { margin: 0; font-size: 20px; }
 .brand p { margin: 2px 0 0; color: #9bb3c4; font-size: 12px; }
-nav { display: grid; gap: 5px; }
-nav a { color: #dcebf4; text-decoration: none; padding: 10px 12px; border-radius: 10px; }
-nav a.active, nav a:hover { background: #183b51; color: white; }
-.user-box { margin-top: 24px; padding: 14px; background: #132e40; border-radius: 14px; }
+nav { display: grid; gap: 6px; }
+nav a {
+  color: #dcebf4;
+  text-decoration: none;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  transition: background .16s ease, border-color .16s ease, transform .16s ease;
+}
+nav a.active {
+  background: #222222;
+  border-color: rgba(255,255,255,.22);
+  color: white;
+  box-shadow: inset 3px 0 0 #ffffff;
+}
+nav a:hover {
+  background: #1a1a1a;
+  color: white;
+  transform: translateX(2px);
+}
+.user-box { margin-top: 24px; padding: 14px; background: #111111; border: 1px solid #2b2b2b; border-radius: 16px; }
 .user-box p { margin: 0; font-weight: 800; }
 .user-box small { color: #aabdc9; }
-.main-content { flex: 1; padding: 28px; max-width: 1400px; }
+.main-content { flex: 1; padding: 30px; max-width: 1440px; }
 .page-header { margin-bottom: 22px; }
 .page-header h1 { margin: 0; font-size: 30px; }
 .page-header p { margin: 6px 0 0; color: #5c6f7d; }
-.panel { background: white; border: 1px solid #e3ebf2; border-radius: 18px; padding: 20px; box-shadow: 0 10px 26px rgba(27, 54, 76, 0.06); margin-bottom: 18px; }
+.panel { background: rgba(255,255,255,.96); border: 1px solid #e3ebf2; border-radius: 16px; padding: 20px; box-shadow: 0 12px 30px rgba(27, 54, 76, 0.07); margin-bottom: 18px; }
 .panel h3 { margin-top: 0; }
 .grid { display: grid; gap: 16px; }
 .cards { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: 18px; }
@@ -57,7 +87,7 @@ nav a.active, nav a:hover { background: #183b51; color: white; }
   place-items: center;
   padding: 24px;
   background:
-    linear-gradient(106deg, #254d84 0 34%, transparent 34%),
+    linear-gradient(106deg, #000000 0 34%, transparent 34%),
     linear-gradient(106deg, transparent 0 62%, #eef3f7 62%),
     #ffffff;
 }
@@ -68,8 +98,8 @@ nav a.active, nav a:hover { background: #183b51; color: white; }
   display: grid;
   grid-template-columns: 1.04fr .96fr;
   border-radius: 16px;
-  background: #254d84;
-  box-shadow: 0 18px 34px rgba(13, 33, 48, .32);
+  background: #000000;
+  box-shadow: 0 20px 42px rgba(5, 18, 36, .42);
   overflow: hidden;
 }
 
@@ -79,7 +109,7 @@ nav a.active, nav a:hover { background: #183b51; color: white; }
   place-items: center;
   padding: 44px;
   background:
-    linear-gradient(rgba(17, 55, 94, .42), rgba(17, 55, 94, .38)),
+    linear-gradient(rgba(0, 0, 0, .62), rgba(0, 0, 0, .62)),
     url('/login-trigeneration.jpg') center/cover no-repeat;
 }
 
@@ -155,7 +185,7 @@ nav a.active, nav a:hover { background: #183b51; color: white; }
   margin-top: 18px;
   border-radius: 999px;
   background: white;
-  color: #1f477d;
+  color: #000000;
   box-shadow: 0 10px 18px rgba(0,0,0,.18);
 }
 
@@ -165,7 +195,7 @@ nav a.active, nav a:hover { background: #183b51; color: white; }
   right: 22px;
   z-index: 2;
   border-radius: 999px;
-  background: #254d84;
+  background: #000000;
   color: white;
 }
 
@@ -185,7 +215,7 @@ nav a.active, nav a:hover { background: #183b51; color: white; }
   .app-layout { display: block; }
   .sidebar { position: relative; width: 100%; height: auto; }
   .two-col { grid-template-columns: 1fr; }
-  .auth-page { padding: 16px; background: #254d84; }
+  .auth-page { padding: 16px; background: #000000; }
   .auth-shell { grid-template-columns: 1fr; min-height: auto; }
   .auth-photo-panel { min-height: 260px; padding: 28px; }
   .auth-form-panel { padding: 30px 22px; }
