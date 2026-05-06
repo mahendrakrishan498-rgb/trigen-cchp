@@ -3,16 +3,16 @@ const isLocalhost =
   ['localhost', '127.0.0.1'].includes(window.location.hostname);
 
 const configuredApiBase = import.meta.env.VITE_API_BASE || '';
-const defaultApiBase = isLocalhost ? 'http://localhost:5000/api' : '/_/backend/api';
-const isLocalOnlyApiBase =
+const isBadProductionApiBase =
+  !configuredApiBase ||
   configuredApiBase === '/api' ||
   configuredApiBase.includes('localhost') ||
   configuredApiBase.includes('127.0.0.1');
 
 export const API_BASE =
-  !isLocalhost && (!configuredApiBase || isLocalOnlyApiBase)
-    ? '/_/backend/api'
-    : configuredApiBase || defaultApiBase;
+  isLocalhost
+    ? (configuredApiBase || 'http://localhost:5000/api')
+    : (isBadProductionApiBase ? '/_/backend/api' : configuredApiBase);
 
 export function getToken() {
   return localStorage.getItem('trigen_token');

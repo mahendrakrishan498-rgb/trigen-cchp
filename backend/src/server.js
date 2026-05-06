@@ -13,6 +13,7 @@ const pscadRoutes = require('./routes/pscad');
 const comparisonRoutes = require('./routes/comparison');
 const reportRoutes = require('./routes/reports');
 const excelRoutes = require('./routes/excel');
+const clusterRoutes = require('./routes/clusters');
 
 const app = express();
 app.use(cors());
@@ -29,6 +30,7 @@ app.use('/api/pscad', pscadRoutes);
 app.use('/api/comparison', comparisonRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/excel', excelRoutes);
+app.use('/api/clusters', clusterRoutes);
 app.use(errorHandler);
 
 const port = Number(process.env.PORT || 5000);
