@@ -3,20 +3,16 @@ const multer = require('multer');
 const XLSX = require('xlsx');
 
 const router = express.Router();
-router.get('/test', (req, res) => {
-    res.json({
-      ok: true,
-      message: 'Excel route is working online'
-    });
-  });
 
 const upload = multer({
-  storage: multer.memoryStorage()
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024
+  }
 });
 
 function toNumber(value, fallback = 0) {
   if (value === undefined || value === null || value === '') return fallback;
-
   const n = Number(String(value).replace(/,/g, '').trim());
   return Number.isFinite(n) ? n : fallback;
 }
@@ -37,24 +33,20 @@ function setIfText(obj, key, value) {
 
 function setIfNumber(obj, key, value) {
   if (value === undefined || value === null || value === '') return;
-
   const n = toNumber(value, null);
-
-  if (n !== null && Number.isFinite(n)) {
-    obj[key] = n;
-  }
+  if (n !== null && Number.isFinite(n)) obj[key] = n;
 }
 
 function findMonthlyHeaderRow(sheet) {
+  if (!sheet['!ref']) return -1;
+
   const range = XLSX.utils.decode_range(sheet['!ref']);
 
   for (let r = range.s.r; r <= range.e.r; r += 1) {
-    const cellAddress = XLSX.utils.encode_cell({ r, c: 0 }); // column A
+    const cellAddress = XLSX.utils.encode_cell({ r, c: 0 });
     const value = toText(sheet[cellAddress]?.v).toLowerCase();
 
-    if (value === 'month') {
-      return r;
-    }
+    if (value === 'month') return r;
   }
 
   return -1;
@@ -62,7 +54,6 @@ function findMonthlyHeaderRow(sheet) {
 
 function readMonthlyProfile(sheet) {
   const headerRow = findMonthlyHeaderRow(sheet);
-
   if (headerRow === -1) return [];
 
   const profile = [];
@@ -95,6 +86,13 @@ function readMonthlyProfile(sheet) {
 
   return profile;
 }
+
+router.get('/test', (req, res) => {
+  res.json({
+    ok: true,
+    message: 'Excel route is working'
+  });
+});
 
 router.post('/upload', upload.single('file'), async (req, res, next) => {
   try {
@@ -148,7 +146,7 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
       0
     );
 
-    res.json({
+    return res.json({
       message: 'Excel input file uploaded and processed successfully',
       file_name: req.file.originalname,
       sheet_name: sheetName,
