@@ -4,9 +4,13 @@ const isLocalhost =
 
 const configuredApiBase = import.meta.env.VITE_API_BASE || '';
 const defaultApiBase = isLocalhost ? 'http://localhost:5000/api' : '/_/backend/api';
+const isLocalOnlyApiBase =
+  configuredApiBase === '/api' ||
+  configuredApiBase.includes('localhost') ||
+  configuredApiBase.includes('127.0.0.1');
 
 export const API_BASE =
-  !isLocalhost && (!configuredApiBase || configuredApiBase === '/api')
+  !isLocalhost && (!configuredApiBase || isLocalOnlyApiBase)
     ? '/_/backend/api'
     : configuredApiBase || defaultApiBase;
 
