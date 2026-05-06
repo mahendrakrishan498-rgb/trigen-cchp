@@ -41,6 +41,15 @@ function moneyShort(value) {
   return `${x.toFixed(0)} LKR`;
 }
 
+function compactNumber(value, d = 1) {
+  const x = Number(value || 0);
+  const a = Math.abs(x);
+  if (a >= 1e9) return `${(x / 1e9).toFixed(d)}B`;
+  if (a >= 1e6) return `${(x / 1e6).toFixed(d)}M`;
+  if (a >= 1e3) return `${(x / 1e3).toFixed(d)}k`;
+  return n(x, d);
+}
+
 function numberValue(v, fallback = 0) {
   const x = Number(v);
   return Number.isFinite(x) ? x : fallback;
@@ -56,7 +65,116 @@ function valueAt(obj, p, fallback = 'N/A') {
   const val = String(p).split('.').reduce((o, k) => (o ? o[k] : undefined), obj);
   return val ?? fallback;
 }
-const MAX_REPORT_PAGES = 10;
+const MAX_REPORT_PAGES = 13;
+
+const metricLabelMap = {
+  npv_lkr: 'Net Present Value (NPV)',
+  irr_percent: 'Internal Rate of Return (IRR)',
+  simple_payback_years: 'Simple Payback Period',
+  discounted_payback_years: 'Discounted Payback Period',
+  annual_ghg_reduction_kgco2_y: 'Annual GHG Reduction',
+  co2_reduction_tonnes_year: 'CO2 Reduction',
+  co2_reduction_ton: 'CO2 Reduction',
+  baseline_tonnes_year: 'Baseline Emissions',
+  baseline_emission_tonnes_year: 'Baseline Emissions',
+  project_tonnes_year: 'Project Net Emissions',
+  project_emission_tonnes_year: 'Project Net Emissions',
+  export_displacement_credit_tonnes_year: 'Grid Export Displacement Credit',
+  proposed_fixed_om_lkr_y: 'Fixed O&M Cost',
+  proposed_variable_om_lkr_y: 'Variable O&M Cost',
+  proposed_insurance_admin_lkr_y: 'Insurance and Administration Cost',
+  annual_life_cycle_savings_lkr_y: 'Annual Life-Cycle Savings',
+  grid_export_revenue_year1_lkr_y: 'Year 1 Grid Export Revenue',
+  year1_net_project_savings_lkr_y: 'Year 1 Net Project Savings',
+  avoided_hotel_heating_cost_lkr_y: 'Avoided Heating Cost',
+  avoided_hotel_electricity_cost_lkr_y: 'Avoided Grid Electricity Cost',
+  total_avoided_hotel_energy_cost_lkr_y: 'Total Avoided Hotel Energy Cost',
+  proposed_annual_grid_import_cost_lkr_y: 'Annual Grid Import Cost',
+  proposed_annual_biomass_fuel_cost_lkr_y: 'Annual Biomass Fuel Cost',
+  proposed_annual_project_net_operating_cost_lkr_y: 'Annual Net Operating Cost',
+  proposed_annual_project_operating_cost_before_export_lkr_y: 'Operating Cost Before Export Revenue',
+  direct_equipment_capex_lkr: 'Direct Equipment CAPEX',
+  net_initial_investment_lkr: 'Net Initial Investment',
+  turbine_kw: 'Steam Turbine Capacity',
+  absorption_chiller_rt: 'Absorption Chiller Capacity',
+  main_chiller_rt: 'Main Absorption Chiller',
+  backup_chiller_rt: 'Backup Absorption Chiller'
+};
+
+function formatMetricLabel(key) {
+  const normalized = String(key || '').trim().toLowerCase();
+  if (metricLabelMap[normalized]) return metricLabelMap[normalized];
+
+  return titleCase(normalized)
+    .replace(/\bLkr\b/g, 'LKR')
+    .replace(/\bNpv\b/g, 'NPV')
+    .replace(/\bIrr\b/g, 'IRR')
+    .replace(/\bOm\b/g, 'O&M')
+    .replace(/\bDhw\b/g, 'DHW')
+    .replace(/\bGhg\b/g, 'GHG')
+    .replace(/\bCo2\b/g, 'CO2')
+    .replace(/\bKgco2\b/g, 'kgCO2')
+    .replace(/\bKwh\b/g, 'kWh')
+    .replace(/\bKw\b/g, 'kW')
+    .replace(/\bRt\b/g, 'RT');
+}
+
+function unitForMetric(key) {
+  const k = String(key || '').toLowerCase();
+  if (k.includes('irr') || k.includes('percent') || k.endsWith('_pct')) return '%';
+  if (k.includes('payback')) return 'years';
+  if (k.includes('lkr')) return 'LKR';
+  if (k.includes('kgco2')) return 'kgCO2/year';
+  if (k.includes('co2') || k.includes('emission') || k.includes('tonnes')) return 'tCO2/year';
+  if (k.includes('kwh_th') || k.includes('kwhth')) return 'kWhth/year';
+  if (k.includes('kwh')) return 'kWh/year';
+  if (k.includes('turbine') && k.includes('kw')) return 'kW';
+  if (k.includes('chiller') && k.includes('rt')) return 'RT';
+  if (k.includes('biomass') && k.includes('tonnes')) return 'tonnes/year';
+  return '';
+}
+
+function formatMetricValue(key, value, decimals = 2) {
+  if (value === undefined || value === null || value === '') return 'N/A';
+  const x = Number(value);
+  const k = String(key || '').toLowerCase();
+  if (!Number.isFinite(x)) return String(value);
+  if (k.includes('lkr')) return moneyShort(x);
+  if (k.includes('irr') || k.includes('percent') || k.endsWith('_pct')) return `${n(x, decimals)}%`;
+  if (k.includes('payback')) return `${n(x, decimals)} years`;
+  if (k.includes('kgco2')) return `${n(x, decimals)} kgCO2/year`;
+  if (k.includes('co2') || k.includes('emission') || k.includes('tonnes')) return `${n(x, decimals)} tCO2/year`;
+  if (k.includes('kwh_th') || k.includes('kwhth')) return `${n(x, decimals)} kWhth/year`;
+  if (k.includes('kwh')) return `${n(x, decimals)} kWh/year`;
+  if (k.includes('turbine') && k.includes('kw')) return `${n(x, decimals)} kW`;
+  if (k.includes('chiller') && k.includes('rt')) return `${n(x, decimals)} RT`;
+  return n(x, decimals);
+}
+
+function reportParagraph(doc, text, opts = {}) {
+  if (!text) return;
+  ensureSpace(doc, opts.height || 52);
+  doc
+    .font(opts.bold ? 'Helvetica-Bold' : 'Helvetica')
+    .fontSize(opts.size || 9.3)
+    .fillColor(opts.color || '#16212c')
+    .text(text, opts.x || 42, doc.y, {
+      width: opts.width || 510,
+      align: opts.align || 'justify',
+      lineGap: opts.lineGap || 2.5,
+      paragraphGap: opts.paragraphGap || 7
+    });
+}
+
+function subsection(doc, title) {
+  ensureSpace(doc, 32);
+  doc
+    .font('Helvetica-Bold')
+    .fontSize(10)
+    .fillColor('#183241')
+    .text(title, 42, doc.y, { width: 510 });
+  doc.moveDown(0.35);
+}
 
 function pageCount(doc) {
   return doc.bufferedPageRange().count;
@@ -97,7 +215,7 @@ function limitNotice(doc) {
       .fontSize(9)
       .fillColor('#b42318')
       .text(
-        'Report page limit reached. Some detailed tables/graphs were omitted to keep the report within 10 pages.',
+        'Report page limit reached. Some detailed tables/graphs were omitted to keep the report within 12 pages.',
         42,
         doc.y,
         {
@@ -118,71 +236,97 @@ function ensureSpace(doc, requiredHeight, topY = 55) {
 }
 function cover(doc, project, inputs) {
   const hotel = project.hotel_name || inputs.hotel_name || 'Selected Hotel';
+  const cluster = project.location || inputs.location || 'Selected cluster';
+  const year = inputs.financial_year || inputs.project_year || new Date().getFullYear();
   const img = path.join(__dirname, '..', '..', 'assets', 'cover-trigeneration.png');
 
-  if (fs.existsSync(img)) {
-    doc.image(img, 38, 42, { width: 520, height: 245 });
-  } else {
-    doc.roundedRect(45, 50, 505, 230, 18).fill('#e8f5e9');
-    doc
-      .font('Helvetica-Bold')
-      .fontSize(28)
-      .fillColor('#0f5132')
-      .text('Biomass CCHP System', 65, 130, {
-        width: 465,
-        align: 'center'
-      });
-  }
+  doc.rect(0, 0, doc.page.width, doc.page.height).fill('#ffffff');
+  doc.rect(0, 0, doc.page.width, 118).fill('#0b2f2a');
+  doc.rect(0, 118, doc.page.width, 5).fill('#8bc34a');
 
   doc
     .font('Helvetica-Bold')
-    .fontSize(21)
-    .fillColor('#0f5132')
-    .text(`Biomass-Based Trigeneration CCHP Feasibility Report of ${hotel}`, 58, 320, {
+    .fontSize(23)
+    .fillColor('#ffffff')
+    .text('Biomass-Based Trigeneration CCHP Feasibility Report', 58, 46, {
       width: 480,
       align: 'center',
-      lineGap: 6
-    });
-
-  doc.moveDown(2);
-
-  doc
-    .font('Helvetica-Bold')
-    .fontSize(12)
-    .fillColor('#101828')
-    .text('Prepared by a Final Year Project Team (21 batch)', {
-      align: 'center'
+      lineGap: 4
     });
 
   doc
     .font('Helvetica')
-    .fontSize(12)
-    .text('Department of Mechanical Engineering, University of Moratuwa', {
+    .fontSize(10)
+    .fillColor('#d7eadf')
+    .text('Preliminary techno-economic and environmental assessment for hotel applications', 90, 102, {
+      width: 440,
       align: 'center'
     });
 
-  doc.moveDown(1);
+  let coverImageRendered = false;
+  if (fs.existsSync(img)) {
+    try {
+      doc.image(img, 55, 150, { fit: [485, 260], align: 'center' });
+      coverImageRendered = true;
+    } catch (err) {
+      console.warn('Cover image could not be rendered:', err.message);
+    }
+  }
+
+  if (!coverImageRendered) {
+    doc.roundedRect(55, 155, 485, 210, 10).fillAndStroke('#f8fbfd', '#dbe7ef');
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(18)
+      .fillColor('#0f5132')
+      .text('Biomass CCHP System Configuration', 75, 245, {
+        width: 445,
+        align: 'center'
+      });
+  }
+
+  const infoRows = [
+    ['Hotel name', hotel],
+    ['Cluster / location', cluster],
+    ['Project year', year],
+    ['Prepared by', 'Final Year Project Team'],
+    ['Department', 'Department of Mechanical Engineering, University of Moratuwa'],
+    ['Generated date', new Date().toLocaleDateString('en-LK')]
+  ];
+  let infoY = 438;
+  doc.font('Helvetica-Bold').fontSize(8).fillColor('#0d2130');
+  doc.rect(75, infoY, 155, 22).fillAndStroke('#e8f5f0', '#cfe4dc');
+  doc.rect(230, infoY, 290, 22).fillAndStroke('#e8f5f0', '#cfe4dc');
+  doc.text('Report information', 81, infoY + 7, { width: 143 });
+  doc.text('Details', 236, infoY + 7, { width: 278 });
+  infoY += 22;
+  infoRows.forEach(([label, value], index) => {
+    const bg = index % 2 ? '#ffffff' : '#f9fbfd';
+    doc.rect(75, infoY, 155, 22).fillAndStroke(bg, '#edf2f7');
+    doc.rect(230, infoY, 290, 22).fillAndStroke(bg, '#edf2f7');
+    doc.font('Helvetica-Bold').fontSize(8).fillColor('#1c2a35').text(label, 81, infoY + 6, { width: 143 });
+    doc.font('Helvetica').fontSize(8).fillColor('#1c2a35').text(String(value || '-'), 236, infoY + 6, { width: 278 });
+    infoY += 22;
+  });
 
   doc
-    .fontSize(10)
+    .font('Helvetica')
+    .fontSize(8.5)
     .fillColor('#667085')
-    .text(`Generated on ${new Date().toLocaleDateString()}`, {
-      align: 'center'
+    .text('This document is generated from the biomass-based trigeneration feasibility model and is intended for preliminary engineering decision support.', 78, 620, {
+      width: 440,
+      align: 'center',
+      lineGap: 2
     });
 
   doc
-    .fontSize(10)
-    .fillColor('#475467')
-    .text(
-      'This report is generated using the biomass-based trigeneration web application.',
-      78,
-      525,
-      {
-        width: 440,
-        align: 'center',
-        lineGap: 3
-      }
-    );
+    .font('Helvetica-Bold')
+    .fontSize(9.5)
+    .fillColor('#0f5132')
+    .text('Feasibility Project Report ', 78, 685, {
+      width: 440,
+      align: 'center'
+    });
 }
 
 function toc(doc) {
@@ -503,17 +647,77 @@ function barChart(doc, x, y, w, h, rows, labelKey, valueKey, title, color) {
   });
 
   doc
+    .strokeColor('#000000')
+    .fillColor('#16212c')
+    .lineWidth(1);
+
+  return y + h + 25;
+}
+
+function signedBarChart(doc, x, y, w, h, rows, labelKey, valueKey, title, color) {
+  if (!rows || rows.length === 0) return y;
+
+  if (y > doc.page.height - h - 80) {
+    if (!safeAddPage(doc)) return y;
+    y = 72;
+  }
+
+  doc
+    .fillColor('#16212c')
+    .font('Helvetica-Bold')
+    .fontSize(11)
+    .text(title, x, y - 18);
+
+  doc.rect(x, y, w, h).stroke('#dce7ef');
+
+  const values = rows.map((r) => Number(r[valueKey] || 0));
+  const max = Math.max(...values, 0);
+  const min = Math.min(...values, 0);
+  const range = Math.max(max - min, 1);
+  const zeroY = y + h - ((0 - min) / range) * h;
+  const bw = w / rows.length;
+
+  doc
+    .strokeColor('#98a2b3')
+    .lineWidth(0.8)
+    .moveTo(x, zeroY)
+    .lineTo(x + w, zeroY)
+    .stroke();
+
+  rows.forEach((r, i) => {
+    const value = Number(r[valueKey] || 0);
+    const valueY = y + h - ((value - min) / range) * h;
+    const bx = x + i * bw + 18;
+    const by = Math.min(valueY, zeroY);
+    const bh = Math.max(2, Math.abs(zeroY - valueY));
+
+    doc
+      .rect(bx, by, Math.max(14, bw - 36), bh)
+      .fill(value < 0 ? '#b42318' : (color || '#6941c6'));
+
+    doc
+      .font('Helvetica')
+      .fontSize(7)
+      .fillColor('#657686')
+      .text(String(r[labelKey] || i + 1), x + i * bw + 3, y + h + 6, {
+        width: bw - 6,
+        align: 'center'
+      });
+  });
+
+  doc
     .font('Helvetica')
     .fontSize(7)
     .fillColor('#657686')
-    .text(`max ${n(max, 0)}`, x + 4, y + 4);
+    .text(compactNumber(max, 1), x + 4, y + 4, { width: 60 })
+    .text(compactNumber(min, 1), x + 4, y + h - 13, { width: 60 });
 
   doc
     .strokeColor('#000000')
     .fillColor('#16212c')
     .lineWidth(1);
 
-  return y + h + 25;
+  return y + h + 32;
 }
 
 function lineChart(doc, x, y, w, h, rows, labelKey, valueKey, title, color) {
@@ -588,13 +792,6 @@ function lineChart(doc, x, y, w, h, rows, labelKey, valueKey, title, color) {
       align: 'center'
     });
   });
-
-  // Min / max label
-  doc
-    .font('Helvetica')
-    .fontSize(7)
-    .fillColor('#657686')
-    .text(`min ${n(min, 0)} / max ${n(max, 0)}`, x + 4, y + 4);
 
   // Reset drawing style
   doc
@@ -831,9 +1028,10 @@ function compactDispatchChart(doc, x, y, w, h, rows, title, series) {
     .font('Helvetica')
     .fontSize(6.5)
     .fillColor('#667085')
+    .text(compactNumber(max, 1), x + 3, y + 3, { width: 28 })
+    .text(compactNumber(min, 1), x + 3, y + h - 22, { width: 28 })
     .text('0h', chartX - 5, y + h - 13, { width: 18 })
-    .text('24h', chartX + chartW - 12, y + h - 13, { width: 24, align: 'right' })
-    .text(`min ${n(min, 1)} / max ${n(max, 1)}`, x + 4, y + 4, { width: w - 8 });
+    .text('24h', chartX + chartW - 12, y + h - 13, { width: 24, align: 'right' });
 
   let lx = x + 4;
   const ly = y + h + 4;
@@ -974,6 +1172,17 @@ const dualChillerRt =
   Number(summary.dual_chiller_rt || 0) ||
   0;
 
+const reportNpv = Number(financial.npv_lkr || summary.npv || 0);
+const reportIrr = Number(financial.irr_percent || summary.irr_percent || 0);
+const reportPayback = Number(financial.simple_payback_years || summary.simple_payback_years || 0);
+const reportDiscountRate = Number(inputs.discount_rate || inputs.target_return_percent || 0);
+const reportCo2Reduction = Number(emissions.co2_reduction_tonnes_year || emissions.co2_reduction_ton || summary.co2_reduction_ton || 0);
+const reportTurbineKw = Number(sizing.turbine_kw || summary.turbine_kw || 0);
+const reportCapex = Number(financial.net_initial_investment_lkr || result.step03_capex?.net_initial_investment_lkr || sizing.capex_lkr || 0);
+const reportAnnualNetBenefit = Number(financial.year1_net_project_savings_lkr_y || financial.annual_life_cycle_savings_lkr_y || summary.year1_net_project_savings_lkr || 0);
+const reportExportRevenue = Number(financial.grid_export_revenue_year1_lkr_y || result.energy_balance?.annual_grid_export_revenue_lkr || 0);
+const reportBiomassCost = Number(financial.proposed_annual_biomass_fuel_cost_lkr_y || result.fuel?.annual_biomass_cost_lkr || 0);
+
 // Row 1
 kpi(
   doc,
@@ -981,7 +1190,7 @@ kpi(
   y0,
   150,
   'NPV',
-  money(financial.npv_lkr || summary.npv || 0),
+  money(reportNpv),
   'LKR',
   '#0b74b8'
 );
@@ -992,7 +1201,7 @@ kpi(
   y0,
   150,
   'IRR',
-  `${n(financial.irr_percent || summary.irr_percent, 2)}%`,
+  `${n(reportIrr, 2)}%`,
   'project cash flow',
   '#14a879'
 );
@@ -1003,7 +1212,7 @@ kpi(
   y0,
   150,
   'Simple payback',
-  n(financial.simple_payback_years || summary.simple_payback_years, 2),
+  n(reportPayback, 2),
   'years',
   '#f79009'
 );
@@ -1015,7 +1224,7 @@ kpi(
   y0 + 82,
   150,
   'GHG reduction',
-  n(emissions.co2_reduction_tonnes_year || summary.co2_reduction_ton || 0, 0),
+  n(reportCo2Reduction, 0),
   'tCO2/y',
   '#7c3aed'
 );
@@ -1026,7 +1235,7 @@ kpi(
   y0 + 82,
   150,
   'Turbine',
-  n(sizing.turbine_kw || summary.turbine_kw || 0, 0),
+  n(reportTurbineKw, 0),
   'kW',
   '#b42318'
 );
@@ -1058,6 +1267,21 @@ doc.y = y0 + 170;
       maxRows: 8
     });
 
+    const projectSummaryText = [
+      reportCo2Reduction > 0
+        ? `The results indicate that the proposed biomass-based CCHP configuration provides a measurable environmental benefit, with an estimated annual CO2 reduction of ${n(reportCo2Reduction, 0)} tCO2/year.`
+        : 'The current saved result does not show a positive CO2 reduction value, so the environmental benefit should be reviewed with the input assumptions.',
+      `The selected system includes a ${n(reportTurbineKw, 0)} kW extraction steam turbine and ${n(dualChillerRt, 0)} RT total absorption chiller capacity.`,
+      reportNpv < 0
+        ? `However, the financial indicators show that the current configuration requires further optimisation, as the NPV is ${moneyShort(reportNpv)} and the simple payback period is ${n(reportPayback, 2)} years under the selected assumptions.`
+        : `The positive NPV of ${moneyShort(reportNpv)} indicates positive financial feasibility under the selected assumptions, with a simple payback period of ${n(reportPayback, 2)} years.`,
+      reportDiscountRate && reportIrr < reportDiscountRate
+        ? `The IRR of ${n(reportIrr, 2)}% is below the selected discount rate or target return of ${n(reportDiscountRate, 2)}%, therefore financial optimisation is required.`
+        : '',
+      reportPayback > 10 ? 'The payback period is relatively long for implementation-stage investment approval and should be improved through CAPEX, tariff, or fuel-supply optimisation.' : ''
+    ].filter(Boolean).join(' ');
+    reportParagraph(doc, projectSummaryText);
+
     section(doc, '2. Input Assumptions');
 
     table(doc, [
@@ -1076,7 +1300,7 @@ doc.y = y0 + 170;
       widths: [250, 160, 100],
       maxRows: 18
     });
-
+    safeAddPage(doc)
     section(doc, '3. Load Profile Analysis');
 
     const load = result.step01_load_profile || {};
@@ -1125,22 +1349,77 @@ doc.y = y0 + 170;
         510,
         170,
         monthly,
-        'Monthly electricity, cooling and heating'
+        'Monthly Electricity, Cooling and Heating Demand'
       );
      
     
       table(doc, monthly, [
         { label: 'Month', get: (r) => r.month },
-        { label: 'Electricity kWh', get: (r) => money(r.hotel_electricity_kwh) },
-        { label: 'Cooling kWh', get: (r) => money(r.cooling_thermal_kwh) },
-        { label: 'Heating kWh', get: (r) => money(r.heating_thermal_kwh) }
+        { label: 'Electricity (kWh)', get: (r) => money(r.hotel_electricity_kwh) },
+        { label: 'Cooling (kWh)', get: (r) => money(r.cooling_thermal_kwh) },
+        { label: 'Heating (kWhth)', get: (r) => money(r.heating_thermal_kwh) }
       ], {
         widths: [65, 145, 150, 150],
         maxRows: 13
       });
     }
+    safeAddPage(doc);
     section(doc, '4. Technical Design');
     const design = result.step02_technical_design || {};
+    const configurationImage = path.join(__dirname, '..', '..', 'assets', 'configuration-01.png');
+
+    ensureSpace(doc, 340);
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(10.5)
+      .fillColor('#16212c')
+      .text('System configuration', 42, doc.y, {
+        width: 510
+      });
+    doc.moveDown(0.6);
+
+    if (fs.existsSync(configurationImage)) {
+      doc.image(configurationImage, 42, doc.y, {
+        fit: [510, 300],
+        align: 'center'
+      });
+      doc.y += 308;
+    } else {
+      doc.roundedRect(42, doc.y, 510, 120, 8).fillAndStroke('#f8fbfd', '#dbe7ef');
+      doc
+        .font('Helvetica')
+        .fontSize(9)
+        .fillColor('#667085')
+        .text('Configuration image not available.', 58, doc.y + 48, {
+          width: 478,
+          align: 'center'
+        });
+      doc.y += 132;
+    }
+
+    reportParagraph(
+      doc,
+      'The proposed configuration consists of a biomass-fired boiler, extraction-condensing steam turbine, electrical generator, absorption chiller, domestic hot water heat exchanger, condenser, and feedwater return loop. The system is designed to supply electricity, cooling, and useful thermal energy from a single biomass fuel input.',
+      { size: 8.9, color: '#405363', height: 50 }
+    );
+
+    table(doc, [
+      ['1', 'Biomass-fired boiler / steam generator', sizing.boiler_tph, 'ton/hr'],
+      ['2', 'High-pressure steam line', design.selected_turbine_inlet_steam_flow_kg_h, 'kg/h'],
+      ['3', 'Extraction-condensing steam turbine', sizing.turbine_kw, 'kW'],
+      ['4', 'Electric generator output', sizing.turbine_kw, 'kW'],
+      ['5a', 'Absorption chiller generator', dualChillerRt, 'RT'],
+      ['5b', 'DHW heat exchanger', sizing.heat_exchanger_kw, 'kW']
+    ].map(([a, b, c, d]) => ({ a, b, c, d })), [
+      { label: 'No.', get: (r) => r.a },
+      { label: 'Configuration component', get: (r) => r.b },
+      { label: 'Value', get: (r) => typeof r.c === 'number' ? n(r.c, 2) : (r.c ?? 'N/A') },
+      { label: 'Unit', get: (r) => r.d }
+    ], {
+      widths: [48, 272, 105, 85],
+      maxRows: 8
+    });
+
     table(doc, [
       ['Boiler / steam generator', sizing.steam_generator_kg_h || design.selected_turbine_inlet_steam_flow_kg_h, 'kg/h steam'],
       ['Steam turbine capacity', sizing.turbine_kw, 'kW'],
@@ -1160,34 +1439,52 @@ doc.y = y0 + 170;
     if (monthly.length) {
       const yMonthly = doc.y + 18;
 
-      barChart(doc, 42, yMonthly, 245, 145, monthly, 'month', 'export_revenue_lkr', 'Export Revenue (LKR)', '#14a879');
-      barChart(doc, 310, yMonthly, 245, 145, monthly, 'month', 'import_cost_lkr', 'Grid Import Cost (LKR)', '#f04438');
+      barChart(doc, 42, yMonthly, 245, 145, monthly, 'month', 'export_revenue_lkr', 'Monthly Export Revenue', '#14a879');
+      barChart(doc, 310, yMonthly, 245, 145, monthly, 'month', 'import_cost_lkr', 'Monthly Grid Import Cost', '#f04438');
 
       doc.y = yMonthly + 180;
 
       table(doc, monthly, [
         { label: 'Month', get: (r) => r.month },
-        { label: 'Hotel Elec kWh', get: (r) => money(r.hotel_electricity_kwh) },
-        { label: 'Cooling kWh', get: (r) => money(r.cooling_thermal_kwh) },
-        { label: 'Heating kWh', get: (r) => money(r.heating_thermal_kwh) },
-        { label: 'Export kWh', get: (r) => money(r.grid_export_kwh) },
-        { label: 'Export Revenue', get: (r) => moneyShort(r.export_revenue_lkr) }
+        { label: 'Electricity (kWh)', get: (r) => money(r.hotel_electricity_kwh) },
+        { label: 'Cooling (kWh)', get: (r) => money(r.cooling_thermal_kwh) },
+        { label: 'Heating (kWhth)', get: (r) => money(r.heating_thermal_kwh) },
+        { label: 'Export (kWh)', get: (r) => money(r.grid_export_kwh) },
+        { label: 'Export revenue', get: (r) => moneyShort(r.export_revenue_lkr) }
       ], {
         widths: [45, 95, 90, 90, 85, 105],
         maxRows: 13
       });
     }
-
+    safeAddPage(doc)
     section(doc, '6. Financial Feasibility');
 
-    table(doc, Object.entries(financial).map(([k, v]) => ({ k: titleCase(k), v })), [
-      { label: 'Financial metric', get: (r) => r.k },
-      { label: 'Value', get: (r) => String(r.k).toLowerCase().includes('lkr') ? moneyShort(r.v) : n(r.v, 3) }
+    table(doc, Object.entries(financial).map(([k, v]) => ({ k, v })), [
+      { label: 'Financial metric', get: (r) => formatMetricLabel(r.k) },
+      { label: 'Value', get: (r) => formatMetricValue(r.k, r.v, 2) },
+      { label: 'Unit', get: (r) => unitForMetric(r.k) || '-' }
     ], {
-      widths: [310, 200],
+      widths: [270, 150, 90],
       maxRows: 26
     });
 
+    const financialInterpretation = [
+      reportNpv < 0
+        ? `The financial results indicate that the project is financially weak under the current assumptions, with an NPV of ${moneyShort(reportNpv)}.`
+        : `The financial results indicate that the project is financially acceptable under the current assumptions, with an NPV of ${moneyShort(reportNpv)}.`,
+      `The annual net benefit is estimated as ${moneyShort(reportAnnualNetBenefit)}, compared with a net initial investment of ${moneyShort(reportCapex)}.`,
+      reportPayback > 15
+        ? `The simple payback period of ${n(reportPayback, 2)} years is long and indicates sensitivity to capital cost, biomass fuel cost, and tariff assumptions.`
+        : `The simple payback period is ${n(reportPayback, 2)} years under the selected tariff and cost assumptions.`,
+      reportExportRevenue > Math.abs(reportAnnualNetBenefit) * 0.2
+        ? `Year 1 grid export revenue of ${moneyShort(reportExportRevenue)} provides a meaningful improvement to project cash flow.`
+        : '',
+      reportBiomassCost > 0 && reportBiomassCost > Math.abs(reportAnnualNetBenefit) * 0.5
+        ? `The annual biomass fuel cost of ${moneyShort(reportBiomassCost)} is a major operating-cost driver and should be confirmed using supplier quotations and fuel logistics assessment.`
+        : ''
+    ].filter(Boolean).join(' ');
+    reportParagraph(doc, financialInterpretation);
+    safeAddPage(doc)
     section(doc, '7. Cash Flow Table');
 
     if (cashFlow.length) {
@@ -1202,60 +1499,82 @@ doc.y = y0 + 170;
         filtered,
         'year_index',
         'cumulative_discounted_cash_flow_lkr',
-        'Cumulative Discounted Cash Flow (LKR)',
+        'Cumulative Discounted Cash Flow over Project Lifetime',
         '#b42318'
       );
 
       table(doc, filtered, [
         { label: 'Year', get: (r) => r.year_index },
-        { label: 'Export tariff', get: (r) => n(r.export_tariff_lkr_kwh, 2) },
-        { label: 'Benefits', get: (r) => moneyShort(r.total_project_benefits_lkr) },
-        { label: 'Net CF', get: (r) => moneyShort(r.net_cash_flow_lkr) },
-        { label: 'Cum. DCF', get: (r) => moneyShort(r.cumulative_discounted_cash_flow_lkr) }
+        { label: 'Export tariff (LKR/kWh)', get: (r) => n(r.export_tariff_lkr_kwh, 2) },
+        { label: 'Benefits (LKR)', get: (r) => moneyShort(r.total_project_benefits_lkr) },
+        { label: 'Net CF (LKR)', get: (r) => moneyShort(r.net_cash_flow_lkr) },
+        { label: 'Cum. DCF (LKR)', get: (r) => moneyShort(r.cumulative_discounted_cash_flow_lkr) }
       ], {
         widths: [50, 90, 125, 120, 125],
         maxRows: 26
       });
+
+      const lastCashFlow = filtered[filtered.length - 1] || {};
+      const finalDcf = Number(lastCashFlow.cumulative_discounted_cash_flow_lkr || 0);
+      reportParagraph(
+        doc,
+        finalDcf < 0
+          ? `The cumulative discounted cash flow remains negative at the end of the ${filtered.length}-year period, indicating that the project does not fully recover the initial investment under the selected discounting assumptions.`
+          : `The cumulative discounted cash flow becomes positive by the end of the analysed period, indicating that discounted investment recovery is achieved under the selected assumptions.`
+      );
     }
 
     section(doc, '8. Emission Reduction');
 
     // Get emission values safely
-    const baselineEmission =
-      Number(emissions.baseline_tonnes_year || 0) ||
-      Number(emissions.baseline_emission_tonnes_year || 0) ||
-      Number(emissions.current_emission_tonnes_year || 0) ||
-      0;
+    const baselineEmissionKg = Number.isFinite(Number(emissions.baseline_total_emissions_kgco2_y))
+      ? Number(emissions.baseline_total_emissions_kgco2_y)
+      : null;
+    const projectEmissionKg = Number.isFinite(Number(emissions.proposed_net_emissions_kgco2_y))
+      ? Number(emissions.proposed_net_emissions_kgco2_y)
+      : null;
+    const co2ReductionKg = Number.isFinite(Number(emissions.annual_ghg_reduction_kgco2_y))
+      ? Number(emissions.annual_ghg_reduction_kgco2_y)
+      : null;
+
+    const baselineEmission = baselineEmissionKg !== null
+      ? baselineEmissionKg / 1000
+      : Number(emissions.baseline_tonnes_year || 0) ||
+        Number(emissions.baseline_emission_tonnes_year || 0) ||
+        Number(emissions.current_emission_tonnes_year || 0) ||
+        0;
     
-    const projectEmission =
-      Number(emissions.project_tonnes_year || 0) ||
-      Number(emissions.project_emission_tonnes_year || 0) ||
-      Number(emissions.new_system_emission_tonnes_year || 0) ||
-      0;
+    const projectEmission = projectEmissionKg !== null
+      ? projectEmissionKg / 1000
+      : Number(emissions.project_tonnes_year || 0) ||
+        Number(emissions.project_emission_tonnes_year || 0) ||
+        Number(emissions.new_system_emission_tonnes_year || 0) ||
+        0;
     
-    const co2Reduction =
-      Number(emissions.co2_reduction_tonnes_year || 0) ||
-      Number(emissions.co2_reduction_ton || 0) ||
-      Math.max(baselineEmission - projectEmission, 0);
+    const co2Reduction = co2ReductionKg !== null
+      ? co2ReductionKg / 1000
+      : Number(emissions.co2_reduction_tonnes_year || 0) ||
+        Number(emissions.co2_reduction_ton || 0) ||
+        baselineEmission - projectEmission;
     
     // Emission graph data
     const emissionGraphRows = [
       {
-        item: 'Baseline',
-        value: baselineEmission
+        item: 'Baseline total',
+        value: baselineEmissionKg !== null ? baselineEmissionKg : baselineEmission * 1000
       },
       {
-        item: 'Project',
-        value: projectEmission
+        item: 'Project net',
+        value: projectEmissionKg !== null ? projectEmissionKg : projectEmission * 1000
       },
       {
-        item: 'Reduction',
-        value: co2Reduction
+        item: 'GHG reduction',
+        value: co2ReductionKg !== null ? co2ReductionKg : co2Reduction * 1000
       }
     ];
     
     // Add graph
-    doc.y = barChart(
+    doc.y = signedBarChart(
       doc,
       42,
       doc.y + 18,
@@ -1264,19 +1583,34 @@ doc.y = y0 + 170;
       emissionGraphRows,
       'item',
       'value',
-      'Emission Comparison (tCO2/year)',
-      '#14a879'
+      'Annual Emission Comparison (kgCO2/year)',
+      '#6941c6'
     );
     
     // Add emission table
-    table(doc, Object.entries(emissions).map(([k, v]) => ({ k: titleCase(k), v })), [
-      { label: 'Emission item', get: (r) => r.k },
-      { label: 'Value', get: (r) => n(r.v, 2) }
+    table(doc, Object.entries(emissions).map(([k, v]) => ({ k, v })), [
+      { label: 'Emission item', get: (r) => formatMetricLabel(r.k) },
+      { label: 'Value', get: (r) => formatMetricValue(r.k, r.v, 2) },
+      { label: 'Unit', get: (r) => unitForMetric(r.k) || 'tCO2/year' }
     ], {
-      widths: [310, 200],
+      widths: [285, 145, 80],
       maxRows: 12
     });
 
+    const emissionReductionPercent = baselineEmission > 0 ? (co2Reduction / baselineEmission) * 100 : 0;
+    const exportCredit = Number(emissions.export_displacement_credit_tonnes_year || emissions.export_credit_tonnes_year || 0);
+    const emissionInterpretation = [
+      `The baseline emissions are estimated at ${n(baselineEmission, 2)} tCO2/year, while the project net emissions are estimated at ${n(projectEmission, 2)} tCO2/year.`,
+      co2Reduction > 0
+        ? `This gives an estimated CO2 reduction of ${n(co2Reduction, 2)} tCO2/year.`
+        : 'The current saved result does not show a positive emission reduction, so the emission factors and dispatch assumptions should be reviewed.',
+      projectEmission < 0 || emissionReductionPercent > 100
+        ? 'The negative project net emissions or reduction above 100% occurs because exported electricity is treated as a grid-displacement credit. This should be interpreted as a model-based displacement benefit rather than direct on-site negative emissions.'
+        : '',
+      exportCredit > 0 ? `The grid export displacement credit is ${n(exportCredit, 2)} tCO2/year and has a significant influence on the net emission result.` : ''
+    ].filter(Boolean).join(' ');
+    reportParagraph(doc, emissionInterpretation);
+    safeAddPage(doc)
     section(doc, '9. Sensitivity Analysis');
 
     const sensitivity = result.sensitivity || [];
@@ -1291,54 +1625,50 @@ doc.y = y0 + 170;
         sensitivity,
         'scenario',
         'adjusted_simple_payback_years',
-        'Sensitivity: Adjusted Simple Payback (years)',
+        'Sensitivity of Simple Payback Period',
         '#f79009'
       );
 
       table(doc, sensitivity, [
         { label: 'Scenario', get: (r) => r.scenario },
-        { label: 'Savings LKR/y', get: (r) => moneyShort(r.adjusted_year1_net_project_savings_lkr) },
-        { label: 'NPV', get: (r) => moneyShort(r.adjusted_npv_lkr) },
-        { label: 'Payback y', get: (r) => n(r.adjusted_simple_payback_years, 2) }
+        { label: 'Savings (LKR/year)', get: (r) => moneyShort(r.adjusted_year1_net_project_savings_lkr) },
+        { label: 'NPV (LKR)', get: (r) => moneyShort(r.adjusted_npv_lkr) },
+        { label: 'Payback (years)', get: (r) => n(r.adjusted_simple_payback_years, 2) }
       ], {
         widths: [150, 130, 130, 100],
         maxRows: 12
       });
-    }
 
+      const byNpv = sensitivity
+        .filter((r) => Number.isFinite(Number(r.adjusted_npv_lkr)))
+        .sort((a, b) => Number(b.adjusted_npv_lkr) - Number(a.adjusted_npv_lkr));
+      const byPayback = sensitivity
+        .filter((r) => Number.isFinite(Number(r.adjusted_simple_payback_years)))
+        .sort((a, b) => Number(a.adjusted_simple_payback_years) - Number(b.adjusted_simple_payback_years));
+      const best = byNpv[0] || byPayback[0];
+      const worst = byNpv[byNpv.length - 1] || byPayback[byPayback.length - 1];
+      const scenarioNames = sensitivity.map((r) => String(r.scenario || '').toLowerCase()).join(' ');
+      const drivers = [
+        scenarioNames.includes('capex') ? 'CAPEX' : '',
+        scenarioNames.includes('grid') || scenarioNames.includes('tariff') ? 'grid electricity tariff' : '',
+        scenarioNames.includes('biomass') || scenarioNames.includes('fuel') ? 'biomass fuel cost' : '',
+        scenarioNames.includes('export') ? 'export tariff' : ''
+      ].filter(Boolean);
+      reportParagraph(
+        doc,
+        [
+          best ? `The best sensitivity case is "${best.scenario}", with an adjusted NPV of ${moneyShort(best.adjusted_npv_lkr)} and payback of ${n(best.adjusted_simple_payback_years, 2)} years.` : '',
+          worst ? `The weakest case is "${worst.scenario}", with an adjusted NPV of ${moneyShort(worst.adjusted_npv_lkr)} and payback of ${n(worst.adjusted_simple_payback_years, 2)} years.` : '',
+          drivers.length
+            ? `The sensitivity results indicate that project feasibility is strongly influenced by ${drivers.join(', ')}. Improved tariff savings or reduced biomass cost can reduce the payback period, while higher fuel cost or reduced grid-tariff savings weakens the financial performance.`
+            : 'The sensitivity results should be reviewed to identify the input assumptions that most strongly affect NPV and payback period.'
+        ].filter(Boolean).join(' ')
+      );
+    }
+    safeAddPage(doc);
     section(doc, '10. Design Analysis & Validation');
 
-    doc
-      .font('Helvetica-Bold')
-      .fontSize(10)
-      .fillColor('#16212c')
-      .text('Latest BMS Summary');
-
-    doc.moveDown(0.35);
-
-    if (bms[0]) {
-      table(doc, Object.entries(parseJson(bms[0].summary_json, {})).map(([k, v]) => ({
-        k: titleCase(k),
-        v
-      })), [
-        { label: 'BMS item', get: (r) => r.k },
-        { label: 'Value', get: (r) => typeof r.v === 'number' ? n(r.v, 3) : r.v }
-      ], {
-        widths: [260, 250],
-        maxRows: 12
-      });
-    } else {
-      doc
-        .font('Helvetica')
-        .fontSize(9)
-        .fillColor('#667085')
-        .text('No BMS upload attached.');
-
-      doc.moveDown(0.8);
-    }
-
-    ensureSpace(doc, 540);
-
+   
     doc
       .font('Helvetica-Bold')
       .fontSize(10)
@@ -1367,29 +1697,46 @@ doc.y = y0 + 170;
       const rightX = 307;
       let chartY = doc.y + 14;
 
-      compactDispatchChart(doc, leftX, chartY, chartW, chartH, dispatchValidationRows, 'Hotel Electric Load Profile (kW)', [
+      compactDispatchChart(doc, leftX, chartY, chartW, chartH, dispatchValidationRows, '15-Minute Hotel Electric Load Profile', [
         { key: 'hotel_electric_kw', label: 'Hotel electric', color: '#0b74b8' }
       ]);
-      compactDispatchChart(doc, rightX, chartY, chartW, chartH, dispatchValidationRows, 'Designed Turbine Output (kW)', [
+      compactDispatchChart(doc, rightX, chartY, chartW, chartH, dispatchValidationRows, '15-Minute Turbine Output Profile', [
         { key: 'turbine_output_kw', label: 'Turbine output', color: '#6941c6' }
       ]);
 
       chartY += chartH + 42;
-      compactDispatchChart(doc, leftX, chartY, chartW, chartH, dispatchValidationRows, 'Cooling Thermal Load Profile (kWcool)', [
+      compactDispatchChart(doc, leftX, chartY, chartW, chartH, dispatchValidationRows, '15-Minute Cooling Thermal Load Profile', [
         { key: 'cooling_thermal_kw', label: 'Cooling thermal', color: '#14a879' }
       ]);
-      compactDispatchChart(doc, rightX, chartY, chartW, chartH, dispatchValidationRows, 'Generator Voltage Response (V)', [
+      compactDispatchChart(doc, rightX, chartY, chartW, chartH, dispatchValidationRows, 'Generator Voltage Response', [
         { key: 'voltage_output_v', label: 'Voltage', color: '#f79009' }
       ]);
 
       chartY += chartH + 42;
-      compactDispatchChart(doc, leftX, chartY, chartW, chartH, dispatchValidationRows, 'Generator Frequency Response (Hz)', [
+      compactDispatchChart(doc, leftX, chartY, chartW, chartH, dispatchValidationRows, 'Generator Frequency Response', [
         { key: 'frequency_hz', label: 'Frequency', color: '#b42318' }
       ]);
-      doc.y = compactDispatchChart(doc, rightX, chartY, chartW, chartH, dispatchValidationRows, 'Grid Import and Export Profile (kW)', [
+      doc.y = compactDispatchChart(doc, rightX, chartY, chartW, chartH, dispatchValidationRows, 'Grid Import and Export Profile', [
         { key: 'grid_import_kw', label: 'Grid import', color: '#0b74b8' },
         { key: 'grid_export_kw', label: 'Grid export', color: '#14a879' }
       ]);
+
+      const maxHotelLoad = Math.max(...dispatchValidationRows.map((r) => Number(r.hotel_electric_kw || 0)));
+      const maxTurbineOutput = Math.max(...dispatchValidationRows.map((r) => Number(r.turbine_output_kw || 0)));
+      const maxExport = Math.max(...dispatchValidationRows.map((r) => Number(r.grid_export_kw || 0)));
+      const minVoltage = Math.min(...dispatchValidationRows.map((r) => Number(r.voltage_output_v || 0)));
+      const minFrequency = Math.min(...dispatchValidationRows.map((r) => Number(r.frequency_hz || 0)));
+      reportParagraph(
+        doc,
+        [
+          `The 15-minute dispatch profiles show the interaction between hotel demand, turbine generation, cooling demand, and grid exchange. The peak hotel load is ${n(maxHotelLoad, 2)} kW and the designed turbine output reaches ${n(maxTurbineOutput, 2)} kW.`,
+          maxExport > 0 ? `During periods where turbine output exceeds hotel demand, the model indicates grid export up to ${n(maxExport, 2)} kW.` : 'The simulated profile does not indicate significant grid export during the sampled dispatch period.',
+          minVoltage < 380 || minFrequency < 49.5
+            ? `The minimum simulated voltage is ${n(minVoltage, 2)} V and the minimum frequency is ${n(minFrequency, 3)} Hz; further generator-control and grid-interconnection validation is required.`
+            : `The simulated voltage and frequency remain within the assumed operating range, with minimum voltage of ${n(minVoltage, 2)} V and minimum frequency of ${n(minFrequency, 3)} Hz.`,
+          'Detailed dynamic validation using MATLAB/Simulink or PSCAD is recommended before practical implementation.'
+        ].join(' ')
+      );
     } else {
       doc
         .font('Helvetica')
@@ -1400,70 +1747,41 @@ doc.y = y0 + 170;
       doc.moveDown(0.8);
     }
 
-    if (pscad.length) {
-      doc
-        .font('Helvetica-Bold')
-        .fontSize(9.5)
-        .fillColor('#16212c')
-        .text('Uploaded PSCAD / Dynamic Validation Snapshot');
-
-      doc.moveDown(0.35);
-
-      table(doc, pscad.slice(0, 12), [
-        { label: 'Time s', get: (r) => n(r.time_s, 2) },
-        { label: 'Voltage V', get: (r) => n(r.voltage_v, 2) },
-        { label: 'Freq Hz', get: (r) => n(r.frequency_hz, 3) },
-        { label: 'Power kW', get: (r) => n(r.power_kw, 2) },
-        { label: 'Export kW', get: (r) => n(r.exported_kw, 2) }
-      ], {
-        widths: [70, 100, 95, 120, 125],
-        maxRows: 12
-      });
-    }
-
-    doc
-      .font('Helvetica-Bold')
-      .fontSize(10)
-      .fillColor('#16212c')
-      .text('Excel / RETScreen Comparison');
-
-    doc.moveDown(0.35);
-
-    if (comp.length) {
-      table(doc, comp, [
-        { label: 'Metric', get: (r) => r.metric },
-        { label: 'Website', get: (r) => n(r.website_value, 2) },
-        { label: 'Excel/RETScreen', get: (r) => n(r.retscreen_value, 2) },
-        { label: 'Error %', get: (r) => n(r.error_percent, 2) }
-      ], {
-        widths: [180, 110, 130, 90],
-        maxRows: 18
-      });
-    } else {
-      doc
-        .font('Helvetica')
-        .fontSize(9)
-        .fillColor('#667085')
-        .text('No Excel / RETScreen comparison rows attached.');
-
-      doc.moveDown(0.8);
-    }
-
+    
+    safeAddPage(doc);
     section(doc, '11. Methodology Notes');
 
-    const notes = [
-      'Step01 follows the Excel energy segregation logic: annual electricity is benchmark-based or BMS/measured; cooling electricity is multiplied by existing chiller COP; heating is DHW plus laundry/process heat.',
-    
-      'Step02 follows the Excel dual-chiller and extraction steam turbine selection logic: peak cooling is converted to RT, main/backup chillers are selected from candidate sizes, and the first suitable turbine is selected from candidate kW values.',
-    
-      'Step03 follows the uploaded workbook savings-based model: avoided hotel energy cost plus export revenue are benefits; biomass fuel, O&M, insurance, overhaul and CAPEX are project costs.',
-    
-      'Export revenue is year-linked using the export tariff schedule. Year 1 uses the selected financial year tariff, while later cash-flow years use their corresponding tariff rows.',
-    
-      'CO2 reduction compares baseline grid/heating emissions with project import emissions, biomass emissions and exported-grid displacement credit.'
+    const methodologyNotes = [
+      ['Energy Demand Assessment', 'The energy demand assessment is carried out using benchmark hotel energy intensities, selected cluster factors, and uploaded BMS or measured energy data where available. Annual electrical energy demand is estimated from the selected hotel cluster and number of rooms or obtained directly from uploaded measurements. Cooling demand is derived from existing chiller electricity consumption and chiller COP, while thermal demand is estimated from domestic hot water, laundry, and other process heat requirements.'],
+      ['Technical Sizing Methodology', 'The technical design stage converts peak cooling demand into refrigeration tons and applies the selected sizing margin. Main and backup absorption chillers are selected from predefined candidate capacities to improve reliability and part-load flexibility. The extraction-condensing steam turbine is sized using available steam flow, process thermal demand, and the specific electric yield assumption.'],
+      ['Financial Evaluation Methodology', 'The financial model follows a savings-driven project assessment method. Project benefits include avoided grid electricity cost, avoided conventional heating cost, and electricity export revenue. Project costs include biomass fuel consumption, fixed and variable operation and maintenance, insurance and administration, scheduled overhaul allowance, and capital investment.'],
+      ['Export Tariff and Cash Flow Modelling', 'Electricity export revenue is modelled using a year-linked export tariff schedule. Year 1 applies the tariff corresponding to the selected financial year, while later cash-flow years apply the relevant tariff values for each year of the analysis period. Discounted cash flow indicators are calculated from the resulting annual project cash flows.'],
+      ['Emissions Assessment', 'The emissions assessment compares baseline grid electricity and conventional thermal energy emissions with the project case. Biomass-related emissions, grid imports, and electricity export displacement credits are included in the net project emissions. CO2 reduction is therefore interpreted as a modelled avoided-emissions benefit.'],
+      ['Decision-Support Application', 'The tool combines demand assessment, equipment sizing, financial evaluation, tariff-based export revenue modelling, and emissions assessment into a preliminary decision-support workflow for hotel-sector biomass CCHP feasibility screening.']
     ];
+
+    methodologyNotes.forEach(([heading, text]) => {
+      subsection(doc, heading);
+      reportParagraph(doc, text, { height: 60 });
+    });
+
+    const notes = [
+       'The proposed biomass-based CCHP feasibility tool was developed using an integrated technical, financial, and environmental assessment methodology. The calculation procedure follows the structure of the web-based model, where hotel energy demand is first segregated into electrical, cooling, and thermal energy requirements before sizing the CCHP system and evaluating its economic and environmental performance.',
+
+  'The energy demand assessment is carried out using either benchmark-based hotel energy intensities or uploaded BMS/measured energy data. Annual electrical energy demand is estimated based on the selected hotel cluster and number of rooms, or directly obtained from uploaded measured data when available. Cooling demand is derived by separating the portion of electricity consumed by the existing vapour-compression chiller system and converting it into useful cooling demand using the existing chiller COP. Thermal demand is estimated by considering domestic hot water, laundry, and other process heat requirements relevant to hotel operation.',
+
+  'The technical design stage determines the required capacity of the proposed biomass-based CCHP system. Peak cooling demand is converted into refrigeration tons and used to select suitable absorption chiller capacities. A dual-chiller configuration is considered, where the main and backup absorption chillers are selected from predefined candidate sizes to improve reliability and part-load flexibility. The extraction steam turbine is selected based on the required electrical output and available thermal demand.',
+
+  'The financial evaluation follows a savings-driven project assessment approach. Project benefits include avoided grid electricity cost, avoided conventional thermal energy cost, and revenue from exported electricity. Project costs include biomass fuel consumption, operation and maintenance expenses, insurance cost, scheduled major overhaul allowance, and capital investment.',
+
+  'Electricity export revenue is calculated using a year-linked export tariff structure. The first project year applies the tariff corresponding to the selected financial year, while subsequent cash-flow years apply the relevant tariff values from the applicable yearly tariff schedule. This allows the financial model to reflect tariff variation throughout the project lifetime.',
+
+  'The environmental assessment evaluates the CO₂ reduction achieved by the proposed CCHP system. Baseline emissions are calculated from grid electricity consumption and conventional thermal energy supply. Project emissions are estimated by considering grid electricity imports and biomass-related emissions. Electricity exported to the grid is treated as a displacement credit, reducing the net emissions of the proposed system.',
+
+  'Overall, the methodology provides a structured framework for evaluating the feasibility of biomass-based CCHP systems for hotel applications. By combining energy demand estimation, equipment sizing, financial analysis, tariff-based export revenue calculation, and emissions reduction assessment, the tool supports preliminary decision-making for sustainable hotel energy system planning.'
+];
     
-    notes.forEach((m, i) => {
+    [].forEach((m, i) => {
       doc
         .font('Helvetica')
         .fontSize(9.5)
@@ -1477,10 +1795,22 @@ doc.y = y0 + 170;
     
     
     // =========================
-    // 12. Final Conclusion
+    // 12. Model Limitations and Assumptions
     // =========================
     
-    section(doc, '12. Final Conclusion');
+    section(doc, '12. Model Limitations and Assumptions');
+
+    reportParagraph(
+      doc,
+      'The feasibility results are based on benchmark energy intensities, selected cluster factors, assumed biomass fuel properties, predefined equipment capacities, and tariff assumptions. The model is intended for preliminary feasibility assessment and should not be considered a final engineering design. Detailed site measurements, supplier quotations, fuel supply assessment, grid interconnection approval, detailed thermal system design, and dynamic validation using MATLAB/Simulink or PSCAD are required before implementation.',
+      { size: 9.7, height: 88 }
+    );
+
+    // =========================
+    // 13. Final Conclusion
+    // =========================
+
+    section(doc, '13. Final Conclusion');
     
     // Safe values for conclusion
     const conclusionHotelName =
@@ -1531,27 +1861,27 @@ doc.y = y0 + 170;
       Number(load.annual_heating_demand_kwh_th || 0);
     
     // Feasibility statement
-    let feasibilityText = 'The project shows moderate feasibility and is recommended for further detailed engineering review.';
+    let feasibilityText = 'The project should be reviewed through detailed engineering and commercial optimisation before implementation.';
     
     if (conclusionNpv > 0 && conclusionIrr > 0 && conclusionPayback > 0 && conclusionPayback <= 10) {
-      feasibilityText = 'The project shows strong techno-economic feasibility for further implementation-level study.';
+      feasibilityText = 'The project shows promising financial feasibility and is suitable for further implementation-level study.';
     } else if (conclusionNpv > 0 && conclusionPayback > 10) {
       feasibilityText = 'The project shows positive long-term economic potential, although the payback period should be reviewed carefully during detailed feasibility assessment.';
     } else if (conclusionNpv <= 0) {
-      feasibilityText = 'The project requires further optimisation because the current financial result does not strongly support immediate implementation.';
+      feasibilityText = 'Further optimisation of capital cost, biomass supply cost, export tariff conditions, and equipment selection is required before practical implementation.';
     }
     
     // Conclusion paragraphs
     const conclusionParagraphs = [
-      `Based on the saved simulation results, the proposed biomass-based trigeneration CCHP system for ${conclusionHotelName} in the ${conclusionLocation} cluster was evaluated using the web-based feasibility model. The model considered hotel electricity demand, cooling thermal demand, hot water/process heat demand, biomass fuel cost, grid tariff, export tariff, capital cost, operating cost and emission reduction potential.`,
+      `Based on the saved simulation results, the proposed biomass-based trigeneration CCHP system for ${conclusionHotelName} in the ${conclusionLocation} cluster was evaluated using the web-based feasibility model. The model considered hotel electricity demand, cooling thermal demand, hot water and process heat demand, biomass fuel cost, grid tariff, export tariff, capital cost, operating cost, and emission reduction potential.`,
     
       `The estimated annual electricity demand is ${n(annualElectricityConclusion, 0)} kWh/year, while the annual cooling thermal demand is ${n(annualCoolingConclusion, 0)} kWh/year and the annual heating demand is ${n(annualHeatingConclusion, 0)} kWhth/year. According to the technical design output, the selected turbine capacity is approximately ${n(conclusionTurbine, 0)} kW and the dual absorption chiller capacity is approximately ${n(conclusionDualChiller, 0)} RT.`,
     
-      `From the financial analysis, the calculated Net Present Value is ${moneyShort(conclusionNpv)}, the Internal Rate of Return is ${n(conclusionIrr, 2)}%, and the simple payback period is approximately ${n(conclusionPayback, 2)} years. These values indicate the expected financial performance of the proposed system under the current assumptions and tariff structure.`,
+      `From the financial analysis, the calculated Net Present Value is ${moneyShort(conclusionNpv)}, the Internal Rate of Return is ${n(conclusionIrr, 2)}%, and the simple payback period is approximately ${n(conclusionPayback, 2)} years. These indicators define the financial attractiveness of the proposed system under the current assumptions and tariff structure.`,
     
-      `From the environmental assessment, the system provides an estimated CO2 emission reduction of approximately ${n(conclusionCo2Reduction, 0)} tCO2/year. This reduction is achieved by replacing part of the conventional grid electricity and fossil-fuel-based heating demand with biomass-based combined cooling, heating and power generation.`,
+      `From the environmental assessment, the system provides an estimated CO2 reduction of approximately ${n(conclusionCo2Reduction, 0)} tCO2/year. This reduction is achieved by replacing part of the conventional grid electricity and fossil-fuel-based heating demand with biomass-based combined cooling, heating and power generation.`,
     
-      `${feasibilityText} Before actual implementation, supplier quotations, site-specific biomass availability, boiler and turbine selection, grid export approval, detailed PSCAD/MATLAB validation, and operational constraints should be verified.`
+      `Overall, the proposed biomass-based CCHP system demonstrates environmental potential and provides a structured pathway for reducing grid electricity dependence and conventional thermal energy use. ${feasibilityText} The tool supports preliminary decision-making; before actual implementation, supplier quotations, site-specific biomass availability, boiler and turbine selection, grid export approval, detailed PSCAD/MATLAB validation, and operational constraints should be verified.`
     ];
     
     conclusionParagraphs.forEach((p) => {

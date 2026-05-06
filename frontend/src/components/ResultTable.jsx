@@ -1,3 +1,5 @@
+import { formatValueByKey } from '../utils/formatters';
+
 function pretty(k) {
   return k.replaceAll('_', ' ').replace(/\b\w/g, (m) => m.toUpperCase());
 }
@@ -10,7 +12,7 @@ export default function ResultTable({ data }) {
         {Object.entries(data).map(([k, v]) => (
           <tr key={k}>
             <th>{pretty(k)}</th>
-            <td>{v === null || v === undefined ? 'N/A' : typeof v === 'number' ? v.toLocaleString() : String(v)}</td>
+            <td>{formatValueByKey(k, v)}</td>
           </tr>
         ))}
       </tbody>

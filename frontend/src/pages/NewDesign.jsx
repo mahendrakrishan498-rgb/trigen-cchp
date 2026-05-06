@@ -3,6 +3,7 @@ import PageHeader from '../components/PageHeader';
 import MetricCard from '../components/MetricCard';
 import { apiRequest } from '../api';
 import { useProject } from '../state/ProjectContext';
+import { moneyShort } from '../utils/formatters';
 
 const defaults = {
   title: 'South-West Hotel Step03 Feasibility',
@@ -63,8 +64,6 @@ function hasMonthlyLoadData(rows) {
     )
   );
 }
-
-function money(v) { return Number(v || 0).toLocaleString('en-LK', { maximumFractionDigits: 0 }); }
 
 export default function NewDesign() {
   
@@ -464,7 +463,7 @@ const [showMonthlyProfile, setShowMonthlyProfile] = useState(false);
   
                   <tr>
                     <td>NPV</td>
-                    <td>{Number(result.financial?.npv_lkr || 0).toLocaleString()} LKR</td>
+                    <td>{moneyShort(result.financial?.npv_lkr)}</td>
                   </tr>
   
                   <tr>

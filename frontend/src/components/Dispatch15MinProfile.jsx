@@ -7,6 +7,10 @@ function round(value, digits = 4) {
   return Math.round(Number(value || 0) * m) / m;
 }
 
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function DispatchChart({ title, children, data }) {
   return (
     <section className="panel chart-panel dispatch-chart">
@@ -56,6 +60,7 @@ function designDispatchRows(rows, result) {
 export default function Dispatch15MinProfile({ project, result }) {
   const [rows, setRows] = useState([]);
   const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(true);
 
   const clusterName = project?.location || project?.inputs?.location || result?.inputs_used?.location || '';
 
@@ -63,9 +68,16 @@ export default function Dispatch15MinProfile({ project, result }) {
     let ignore = false;
 
     async function loadDispatch() {
+      setLoading(true);
+      setMessage('');
+      const minimumLoading = delay(300);
+
       if (!clusterName) {
+        await minimumLoading;
+        if (ignore) return;
         setRows([]);
         setMessage('No 15-minute dispatch data uploaded for this cluster.');
+        setLoading(false);
         return;
       }
 
@@ -73,19 +85,26 @@ export default function Dispatch15MinProfile({ project, result }) {
         const clusters = await apiRequest('/clusters');
         const selected = clusters.find((cluster) => cluster.cluster_name === clusterName);
         if (!selected) {
+          await minimumLoading;
+          if (ignore) return;
           setRows([]);
           setMessage('No 15-minute dispatch data uploaded for this cluster.');
+          setLoading(false);
           return;
         }
 
         const data = await apiRequest(`/clusters/${selected.id}/dispatch15min`);
+        await minimumLoading;
         if (ignore) return;
         setRows(data.rows || []);
         setMessage((data.rows || []).length ? '' : 'No 15-minute dispatch data uploaded for this cluster.');
+        setLoading(false);
       } catch (err) {
+        await minimumLoading;
         if (!ignore) {
           setRows([]);
           setMessage(err.message || 'No 15-minute dispatch data uploaded for this cluster.');
+          setLoading(false);
         }
       }
     }
@@ -99,8 +118,14 @@ export default function Dispatch15MinProfile({ project, result }) {
   return (
     <section className="panel">
       <h3>15-Minute CCHP Dispatch Profile</h3>
-      {message && <p className="muted">{message}</p>}
-      {chartRows.length > 0 && (
+      {loading && (
+        <div className="dispatch-loading">
+          <div className="loading-spinner" aria-hidden="true" />
+          <p>Loading 15-minute dispatch graphs...</p>
+        </div>
+      )}
+      {!loading && message && <p className="muted">{message}</p>}
+      {!loading && chartRows.length > 0 && (
         <>
           <p className="muted">
             Turbine output, grid import/export, voltage and frequency are recalculated using the current system design turbine size.
