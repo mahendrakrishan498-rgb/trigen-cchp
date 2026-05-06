@@ -20,17 +20,22 @@ app.use(cors());
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-app.get('/api/health', (req, res) => res.json({ ok: true, name: 'trigen-cchp-backend', version: '2.0.0' }));
-app.use('/api/auth', authRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/calculations', calcRoutes);
-app.use('/api/projects', projectRoutes);
-app.use('/api/bms', bmsRoutes);
-app.use('/api/pscad', pscadRoutes);
-app.use('/api/comparison', comparisonRoutes);
-app.use('/api/reports', reportRoutes);
-app.use('/api/excel', excelRoutes);
-app.use('/api/clusters', clusterRoutes);
+const apiRouter = express.Router();
+
+apiRouter.get('/health', (req, res) => res.json({ ok: true, name: 'trigen-cchp-backend', version: '2.0.0' }));
+apiRouter.use('/auth', authRoutes);
+apiRouter.use('/admin', adminRoutes);
+apiRouter.use('/calculations', calcRoutes);
+apiRouter.use('/projects', projectRoutes);
+apiRouter.use('/bms', bmsRoutes);
+apiRouter.use('/pscad', pscadRoutes);
+apiRouter.use('/comparison', comparisonRoutes);
+apiRouter.use('/reports', reportRoutes);
+apiRouter.use('/excel', excelRoutes);
+apiRouter.use('/clusters', clusterRoutes);
+
+app.use('/api', apiRouter);
+app.use('/_/backend/api', apiRouter);
 app.use(errorHandler);
 
 const port = Number(process.env.PORT || 5000);
