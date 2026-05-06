@@ -30,6 +30,31 @@ const defaults = {
   main_chiller_share: 0.8
 };
 
+const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const excelTemplateUrl = 'https://drive.usercontent.google.com/download?id=1X5pWJXu52SSiQ7tU2rmENgJn8D48guxI&export=download&authuser=1&confirm=t&uuid=2a71b701-427a-4e19-ac1a-e81d4cca678c&at=ALBwUgkSZj-gCrk9Pa9_1WsGg3ee:1778060356483';
+
+function makeMonthlyRows(profile = []) {
+  return months.map((month, index) => {
+    const row = profile[index] || {};
+
+    return {
+      month: row.month || month,
+      occupancy_percent: row.occupancy_percent ?? '',
+      hotel_electricity_kwh: row.hotel_electricity_kwh ?? '',
+      cooling_thermal_kwh: row.cooling_thermal_kwh ?? '',
+      heating_thermal_kwh: row.heating_thermal_kwh ?? ''
+    };
+  });
+}
+
+function hasMonthlyLoadData(rows) {
+  return rows.some((row) =>
+    ['hotel_electricity_kwh', 'cooling_thermal_kwh', 'heating_thermal_kwh'].some((field) =>
+      String(row[field] ?? '').trim() !== '' && Number(row[field] || 0) !== 0
+    )
+  );
+}
+
 function money(v) { return Number(v || 0).toLocaleString('en-LK', { maximumFractionDigits: 0 }); }
 
 export default function NewDesign() {
@@ -43,6 +68,8 @@ export default function NewDesign() {
   const [excelFile, setExcelFile] = useState(null);
 const [excelFileName, setExcelFileName] = useState('No file selected');
 const [excelMessage, setExcelMessage] = useState('');
+const [monthlyRows, setMonthlyRows] = useState(() => makeMonthlyRows());
+const [showMonthlyProfile, setShowMonthlyProfile] = useState(false);
   useEffect(() => {
     apiRequest('/clusters').then((rows) => {
       setClusters(rows);
@@ -101,17 +128,60 @@ const [excelMessage, setExcelMessage] = useState('');
     applyCluster(cluster, true);
   }
 
+  function updateMonthlyRow(index, field, value) {
+    setMonthlyRows((old) => old.map((row, rowIndex) => (
+      rowIndex === index ? { ...row, [field]: value } : row
+    )));
+  }
+
+  function getManualMonthlyProfile() {
+    if (!hasMonthlyLoadData(monthlyRows)) return [];
+
+    return monthlyRows.map((row, index) => ({
+      month: row.month || months[index],
+      occupancy_percent: Number(row.occupancy_percent || 0),
+      hotel_electricity_kwh: Number(row.hotel_electricity_kwh || 0),
+      cooling_thermal_kwh: Number(row.cooling_thermal_kwh || 0),
+      heating_thermal_kwh: Number(row.heating_thermal_kwh || 0)
+    }));
+  }
+
+  function buildCalculationInputs() {
+    const profile = getManualMonthlyProfile();
+    const payload = { ...inputs };
+
+    if (profile.length > 0) {
+      payload.monthly_profile = profile;
+    } else {
+      delete payload.monthly_profile;
+    }
+
+    return payload;
+  }
+
+  function useDefaultMonthlyFactors() {
+    setMonthlyRows(makeMonthlyRows());
+    setShowMonthlyProfile(false);
+    setInputs((old) => {
+      const next = { ...old };
+      delete next.monthly_profile;
+      return next;
+    });
+  }
+
   async function preview() {
-    const data = await apiRequest('/calculations/preview', { method: 'POST', body: inputs });
+    const payload = buildCalculationInputs();
+    const data = await apiRequest('/calculations/preview', { method: 'POST', body: payload });
     setResult(data);
     setMessage('Simulation completed using V3 Step03 Excel-linked equations.');
   }
 
   async function save() {
-    const data = await apiRequest('/calculations/save', { method: 'POST', body: inputs });
+    const payload = buildCalculationInputs();
+    const data = await apiRequest('/calculations/save', { method: 'POST', body: payload });
     setProjectId(data.id);
-    setProject({ id:data.id, ...inputs, result:data.result });
-    setInputs({ ...inputs, project_id: data.id });
+    setProject({ id:data.id, ...payload, result:data.result });
+    setInputs({ ...payload, project_id: data.id });
     setResult(data.result);
     setMessage(data.message);
   }
@@ -134,52 +204,15 @@ const [excelMessage, setExcelMessage] = useState('');
     ['inflation_escalation_rate','Escalation rate','number']
   ];
   function downloadExcelTemplate() {
-    const csvContent =
-      'Project Titile=,,\n' +
-      'Hotel name=,,\n' +
-      'Project Start year=,,\n' +
-      'Number of Rooms=,,\n' +
-      'Location / Hotel cluster=,,\n' +
-      'Laundry operation=,,No\n' +
-      'Electricity intensity (kWh/room/day)=,,\n' +
-      'Cooling share=,,\n' +
-      'DHW L/ORN=,,\n' +
-      'Occupancy %=,,\n' +
-      'Grid import tariff (LKR/kWh)=,,\n' +
-      'Selected biomass fuel=,,\n' +
-      'Biomass price (LKR/kg)=,,\n' +
-      'Biomass LHV (kWh/kg)=,,\n' +
-      '\n' +
-      'Month,Occupancy %,Electricity kWh,Cooling kWh,Heating kWh\n' +
-      'Jan,,,,\n' +
-      'Feb,,,,\n' +
-      'Mar,,,,\n' +
-      'Apr,,,,\n' +
-      'May,,,,\n' +
-      'Jun,,,,\n' +
-      'Jul,,,,\n' +
-      'Aug,,,,\n' +
-      'Sep,,,,\n' +
-      'Oct,,,,\n' +
-      'Nov,,,,\n' +
-      'Dec,,,,\n';
-  
-    const blob = new Blob([csvContent], {
-      type: 'text/csv;charset=utf-8'
-    });
-  
-    const url = window.URL.createObjectURL(blob);
-  
     const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', 'hotel_energy_input_template.csv');
+    link.href = excelTemplateUrl;
+    link.setAttribute('download', 'hotel_energy_input_template.xlsx');
     link.style.display = 'none';
   
     document.body.appendChild(link);
     link.click();
   
     document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
   }
   
   function handleExcelSelect(e) {
@@ -209,29 +242,42 @@ const [excelMessage, setExcelMessage] = useState('');
         method: 'POST',
         body: formData
       });
+      const uploadedProfile = data.monthly_profile && data.monthly_profile.length > 0
+        ? data.monthly_profile
+        : [];
+      const uploadedRows = makeMonthlyRows(uploadedProfile);
+      const hasUploadedMonthlyLoad = hasMonthlyLoadData(uploadedRows);
   
-      setInputs((old) => ({
-        ...old,
-  
-        // Update input tab fields from Excel C1:C14
-        ...(data.inputs_update || {}),
-  
-        // Save uploaded file name
-        excel_input_file_name: data.file_name,
-  
-        // Only add monthly profile if monthly data was filled
-        ...(data.monthly_profile && data.monthly_profile.length > 0
-          ? { monthly_profile: data.monthly_profile }
-          : {}),
-  
-        uploaded_annual_electricity_kwh: data.summary.annual_electricity_kwh,
-        uploaded_annual_cooling_thermal_kwh: data.summary.annual_cooling_thermal_kwh,
-        uploaded_annual_heating_demand_kwh_th: data.summary.annual_heating_demand_kwh_th
-      }));
+      setInputs((old) => {
+        const next = {
+          ...old,
+
+          // Update input tab fields from Excel C1:C14
+          ...(data.inputs_update || {}),
+
+          // Save uploaded file name
+          excel_input_file_name: data.file_name,
+
+          uploaded_annual_electricity_kwh: data.summary.annual_electricity_kwh,
+          uploaded_annual_cooling_thermal_kwh: data.summary.annual_cooling_thermal_kwh,
+          uploaded_annual_heating_demand_kwh_th: data.summary.annual_heating_demand_kwh_th
+        };
+
+        if (hasUploadedMonthlyLoad) {
+          next.monthly_profile = uploadedProfile;
+        } else {
+          delete next.monthly_profile;
+        }
+
+        return next;
+      });
+
+      setMonthlyRows(uploadedRows);
+      setShowMonthlyProfile(hasUploadedMonthlyLoad);
   
       setExcelFileName(data.file_name);
   
-      if (data.monthly_profile && data.monthly_profile.length > 0) {
+      if (hasUploadedMonthlyLoad) {
         setExcelMessage(
           `Uploaded and processed: ${data.file_name}. Project inputs and monthly profile were updated. Now click Run Simulation.`
         );
@@ -375,6 +421,10 @@ const [excelMessage, setExcelMessage] = useState('');
             <button type="button" onClick={handleExcelUpload}>
               Upload
             </button>
+
+            <button type="button" className="secondary" onClick={() => setShowMonthlyProfile(true)}>
+              Enter Monthly Data
+            </button>
   
             {excelMessage && <p className="success">{excelMessage}</p>}
           </div>
@@ -420,6 +470,71 @@ const [excelMessage, setExcelMessage] = useState('');
           )}
         </section>
       </div>
+
+      {showMonthlyProfile && (
+        <section className="panel">
+          <div className="button-row monthly-profile-header">
+            <h3>Monthly Load Profile</h3>
+            <button type="button" className="secondary" onClick={useDefaultMonthlyFactors}>
+              Use Monthly Factors
+            </button>
+          </div>
+
+          <div className="table-scroll">
+            <table className="data-table monthly-input-table">
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th>Occupancy %</th>
+                  <th>Electricity kWh</th>
+                  <th>Cooling kWh</th>
+                  <th>Heating kWh</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {monthlyRows.map((row, index) => (
+                  <tr key={months[index]}>
+                    <td>{row.month || months[index]}</td>
+                    <td>
+                      <input
+                        type="number"
+                        step="any"
+                        value={row.occupancy_percent}
+                        onChange={(e) => updateMonthlyRow(index, 'occupancy_percent', e.target.value)}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        step="any"
+                        value={row.hotel_electricity_kwh}
+                        onChange={(e) => updateMonthlyRow(index, 'hotel_electricity_kwh', e.target.value)}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        step="any"
+                        value={row.cooling_thermal_kwh}
+                        onChange={(e) => updateMonthlyRow(index, 'cooling_thermal_kwh', e.target.value)}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        step="any"
+                        value={row.heating_thermal_kwh}
+                        onChange={(e) => updateMonthlyRow(index, 'heating_thermal_kwh', e.target.value)}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
   
       {result && (
         <section className="panel">

@@ -140,3 +140,27 @@ nav a.active, nav a:hover { background: #183b51; color: white; }
 .mini-summary {
   margin-top: 20px;
 }
+
+.monthly-profile-header {
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.monthly-profile-header h3 {
+  margin: 0;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.monthly-input-table th,
+.monthly-input-table td {
+  min-width: 140px;
+}
+
+.monthly-input-table th:first-child,
+.monthly-input-table td:first-child {
+  min-width: 90px;
+  font-weight: 650;
+}
