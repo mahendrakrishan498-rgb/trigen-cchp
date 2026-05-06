@@ -72,8 +72,21 @@ function safeAddPage(doc) {
   return true;
 }
 
+function lockPageLimit(doc) {
+  const originalAddPage = doc.addPage.bind(doc);
+
+  doc.addPage = (...args) => {
+    if (pageCount(doc) >= MAX_REPORT_PAGES) {
+      doc._pageLimitReached = true;
+      return doc;
+    }
+
+    return originalAddPage(...args);
+  };
+}
+
 function canContinue(doc) {
-  return !doc._pageLimitReached && pageCount(doc) <= MAX_REPORT_PAGES;
+  return !doc._pageLimitReached && pageCount(doc) < MAX_REPORT_PAGES;
 }
 
 function limitNotice(doc) {
@@ -100,8 +113,7 @@ function ensureSpace(doc, requiredHeight, topY = 55) {
   const bottomLimit = doc.page.height - 70;
 
   if (doc.y + requiredHeight > bottomLimit) {
-    doc.addPage();
-    doc.y = topY;
+    if (safeAddPage(doc)) doc.y = topY;
   }
 }
 function cover(doc, project, inputs) {
@@ -394,7 +406,7 @@ function table(doc, rows, columns, opts = {}) {
 
   // Page break before table starts, not after
   if (y + headerH + rowH > bottomLimit) {
-    doc.addPage();
+    if (!safeAddPage(doc)) return;
     y = 55;
   }
 
@@ -407,7 +419,7 @@ function table(doc, rows, columns, opts = {}) {
     // Check space BEFORE drawing the next row.
     // This avoids creating blank pages after the last row.
     if (y + rowH > bottomLimit) {
-      doc.addPage();
+      if (!safeAddPage(doc)) return;
       y = 55;
       drawHeader();
     }
@@ -433,7 +445,7 @@ function table(doc, rows, columns, opts = {}) {
 
   if (rows.length > displayRows.length) {
     if (y + 18 > bottomLimit) {
-      doc.addPage();
+      if (!safeAddPage(doc)) return;
       y = 55;
     }
 
@@ -452,7 +464,7 @@ function barChart(doc, x, y, w, h, rows, labelKey, valueKey, title, color) {
   if (!rows || rows.length === 0) return y;
 
   if (y > doc.page.height - h - 80) {
-    doc.addPage();
+    if (!safeAddPage(doc)) return y;
     y = 72;
   }
 
@@ -508,7 +520,7 @@ function lineChart(doc, x, y, w, h, rows, labelKey, valueKey, title, color) {
   if (!rows || rows.length === 0) return y;
 
   if (y > doc.page.height - h - 80) {
-    doc.addPage();
+    if (!safeAddPage(doc)) return y;
     y = 72;
   }
 
@@ -596,7 +608,7 @@ function multiLineChart(doc, x, y, w, h, rows, title) {
   if (!rows || rows.length === 0) return y;
 
   if (y > doc.page.height - h - 90) {
-    doc.addPage();
+    if (!safeAddPage(doc)) return y;
     y = 72;
   }
 
@@ -919,6 +931,7 @@ router.get('/:projectId/pdf', async (req, res, next) => {
       size: 'A4',
       bufferPages: true
     });
+    lockPageLimit(doc);
 
     const hotelName = project.hotel_name || inputs.hotel_name || 'Hotel';
 
@@ -937,7 +950,7 @@ router.get('/:projectId/pdf', async (req, res, next) => {
     // Store TOC data while sections are created
     doc._tocItems = [];
 
-    doc.addPage();
+    safeAddPage(doc);
 
     const summary = result.summary || {};
     const sizing = result.system_sizing || {};
@@ -1299,6 +1312,37 @@ doc.y = y0 + 170;
       .font('Helvetica-Bold')
       .fontSize(10)
       .fillColor('#16212c')
+      .text('Latest BMS Summary');
+
+    doc.moveDown(0.35);
+
+    if (bms[0]) {
+      table(doc, Object.entries(parseJson(bms[0].summary_json, {})).map(([k, v]) => ({
+        k: titleCase(k),
+        v
+      })), [
+        { label: 'BMS item', get: (r) => r.k },
+        { label: 'Value', get: (r) => typeof r.v === 'number' ? n(r.v, 3) : r.v }
+      ], {
+        widths: [260, 250],
+        maxRows: 12
+      });
+    } else {
+      doc
+        .font('Helvetica')
+        .fontSize(9)
+        .fillColor('#667085')
+        .text('No BMS upload attached.');
+
+      doc.moveDown(0.8);
+    }
+
+    ensureSpace(doc, 540);
+
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(10)
+      .fillColor('#16212c')
       .text('15-Minute CCHP Dispatch Validation');
 
     doc.moveDown(0.35);
@@ -1331,7 +1375,7 @@ doc.y = y0 + 170;
       ]);
 
       chartY += chartH + 42;
-      compactDispatchChart(doc, leftX, chartY, chartW, chartH, dispatchValidationRows, 'Cooling Thermal Load Profile (kW cool)', [
+      compactDispatchChart(doc, leftX, chartY, chartW, chartH, dispatchValidationRows, 'Cooling Thermal Load Profile (kWcool)', [
         { key: 'cooling_thermal_kw', label: 'Cooling thermal', color: '#14a879' }
       ]);
       compactDispatchChart(doc, rightX, chartY, chartW, chartH, dispatchValidationRows, 'Generator Voltage Response (V)', [
@@ -1408,16 +1452,15 @@ doc.y = y0 + 170;
     section(doc, '11. Methodology Notes');
 
     const notes = [
-       'The energy demand assessment follows the segregation methodology adopted in the Excel-based model. Annual electricity demand is estimated using benchmark values or uploaded BMS/measured data. Cooling demand is derived using the existing chiller COP, while thermal demand is estimated from domestic hot water, laundry, and process heat requirements.',
-
-  'The technical design methodology evaluates the required CCHP system capacity based on hotel energy demand. Peak cooling demand is converted into refrigeration tons (RT), suitable main and backup absorption chillers are selected from predefined capacity options, and the extraction steam turbine is selected based on the most appropriate rated power range.',
-
-  'The financial evaluation follows a savings-based project assessment approach. Project benefits are determined from avoided hotel energy costs and electricity export revenue, while project costs include biomass fuel consumption, operation and maintenance, insurance, major overhaul allowances, and capital expenditure.',
-
-  'Electricity export revenue is calculated using a year-linked export tariff structure. The initial project year applies the tariff corresponding to the selected financial year, while subsequent cash-flow years apply the relevant tariff values from the applicable yearly tariff schedule.',
-
-  'The emissions assessment compares baseline emissions from grid electricity and conventional thermal energy supply with project emissions from grid imports and biomass use. Exported electricity is treated as a grid-displacement credit, thereby reducing the net emissions of the proposed CCHP system.'
-
+      'Step01 follows the Excel energy segregation logic: annual electricity is benchmark-based or BMS/measured; cooling electricity is multiplied by existing chiller COP; heating is DHW plus laundry/process heat.',
+    
+      'Step02 follows the Excel dual-chiller and extraction steam turbine selection logic: peak cooling is converted to RT, main/backup chillers are selected from candidate sizes, and the first suitable turbine is selected from candidate kW values.',
+    
+      'Step03 follows the uploaded workbook savings-based model: avoided hotel energy cost plus export revenue are benefits; biomass fuel, O&M, insurance, overhaul and CAPEX are project costs.',
+    
+      'Export revenue is year-linked using the export tariff schedule. Year 1 uses the selected financial year tariff, while later cash-flow years use their corresponding tariff rows.',
+    
+      'CO2 reduction compares baseline grid/heating emissions with project import emissions, biomass emissions and exported-grid displacement credit.'
     ];
     
     notes.forEach((m, i) => {
