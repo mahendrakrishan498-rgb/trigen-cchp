@@ -87,22 +87,67 @@ const { authRequired } = require('../middleware/auth');
 const { calculate } = require('../calcEngine');
 const { getSettingsMap, getEquipmentRows, getExportTariffs, getLatestBmsSummary } = require('../services/settingsService');
 const { getClusterDispatch15Min } = require('../services/clusterDispatch15MinService');
+const southWestDispatch15Min = require('../data/southWestDispatch15Min');
 
 const router = express.Router();
 router.use(authRequired);
 
-async function withClusterDispatchFactors(inputs) {
-  const location = inputs.location || '';
-  if (!location || inputs.dispatch_15min_profile || inputs.dispatch_15min_factors) return inputs;
+function isSouthWestLocation(location) {
+  return /south|south-west|south\/south-west|south coast/i.test(location || '');
+}
 
-  const [clusters] = await pool.query('SELECT id FROM cluster_defaults WHERE cluster_name=? LIMIT 1', [location]);
-  if (!clusters.length) return inputs;
-
-  const rows = await getClusterDispatch15Min(clusters[0].id);
-  if (!rows.length) return inputs;
+function withSouthWestWorkbookDefaults(inputs) {
+  if (!isSouthWestLocation(inputs.location)) return inputs;
 
   return {
     ...inputs,
+    occupancy_percent: 92,
+    electricity_intensity_kwh_room_day: 50,
+    cooling_share: 0.591470459820233,
+    dhw_l_orn: 308,
+    laundry_operation: 'Yes',
+    grid_import_tariff_lkr_kwh: 16.291666666666668,
+    selected_biomass_fuel: 'Gliricidia',
+    selected_biomass_delivered_cost_lkr_kg: 12,
+    selected_biomass_lhv_kwh_kg: 4,
+    financial_metric_years: 20
+  };
+}
+
+function southWestDispatchFactors() {
+  const averageElectricKw = southWestDispatch15Min.reduce((sum, row) => sum + Number(row[1] || 0), 0) / southWestDispatch15Min.length;
+  const averageCoolingKw = southWestDispatch15Min.reduce((sum, row) => sum + Number(row[2] || 0), 0) / southWestDispatch15Min.length;
+
+  return southWestDispatch15Min.map(([timeFraction, hotelElectricKw, coolingThermalKw]) => ({
+    time_fraction: Number(timeFraction || 0),
+    time_hour: Number(timeFraction || 0) * 24,
+    electric_factor: averageElectricKw > 0 ? Number(hotelElectricKw || 0) / averageElectricKw : 1,
+    cooling_factor: averageCoolingKw > 0 ? Number(coolingThermalKw || 0) / averageCoolingKw : 1
+  }));
+}
+
+async function withClusterDispatchFactors(inputs) {
+  const normalizedInputs = withSouthWestWorkbookDefaults(inputs);
+  const location = normalizedInputs.location || '';
+  if (!location) return normalizedInputs;
+
+  if (isSouthWestLocation(location)) {
+    return {
+      ...normalizedInputs,
+      dispatch_15min_profile: southWestDispatchFactors()
+    };
+  }
+
+  if (normalizedInputs.dispatch_15min_profile || normalizedInputs.dispatch_15min_factors) return normalizedInputs;
+
+  const [clusters] = await pool.query('SELECT id FROM cluster_defaults WHERE cluster_name=? LIMIT 1', [location]);
+  if (!clusters.length) return normalizedInputs;
+
+  const rows = await getClusterDispatch15Min(clusters[0].id);
+  if (!rows.length) return normalizedInputs;
+
+  return {
+    ...normalizedInputs,
     dispatch_15min_profile: rows.map((row) => ({
       time_fraction: Number(row.time_fraction || 0),
       time_hour: Number(row.time_hour || 0),

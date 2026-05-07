@@ -3,7 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 import PageHeader from '../components/PageHeader';
 import MetricCard from '../components/MetricCard';
 import { useProject } from '../state/ProjectContext';
-import { compactNumber, moneyShort } from '../utils/formatters';
+import { compactNumber, moneyShort, percentValue } from '../utils/formatters';
 
 export default function Dashboard() {
   const { projectId, project, loadProject, result } = useProject();
@@ -16,7 +16,7 @@ export default function Dashboard() {
     {result && <>
       <div className="grid cards">
         <MetricCard label="NPV" value={moneyShort(result.financial?.npv_lkr)} unit="" />
-        <MetricCard label="IRR" value={`${result.financial?.irr_percent ?? 'N/A'}%`} unit="project cash flow" />
+        <MetricCard label="IRR" value={`${percentValue(result.financial?.irr_percent)}%`} unit="project cash flow" />
         <MetricCard label="Simple payback" value={result.financial?.simple_payback_years} unit="years" />
         <MetricCard label="GHG reduction" value={result.emissions?.co2_reduction_tonnes_year} unit="tCO₂/y" />
         <MetricCard label="Turbine" value={result.system_sizing?.turbine_kw} unit="kW" />

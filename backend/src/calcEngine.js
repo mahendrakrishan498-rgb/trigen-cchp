@@ -109,6 +109,10 @@ function calculate(input = {}, settings = {}, equipmentRows = [], exportTariffs 
   const mainShare = clamp(settingsValue(input, settings, 'main_chiller_share', 0.8), 0.05, 0.95);
   const backupShare = 1 - mainShare;
   const analysisPeriod = Math.round(settingsValue(input, settings, 'analysis_period_years', 25));
+  const financialMetricYears = Math.min(
+    analysisPeriod,
+    Math.round(settingsValue(input, settings, 'financial_metric_years', 20))
+  );
   const discountRate = settingsValue(input, settings, 'discount_rate', 0.12);
   const escalation = settingsValue(input, settings, 'inflation_escalation_rate', 0.05);
   const projectYear = Math.round(settingsValue(input, settings, 'financial_year', 2026));
@@ -238,8 +242,11 @@ function calculate(input = {}, settings = {}, equipmentRows = [], exportTariffs 
   let cum = 0, dcum = 0;
   cashFlow.forEach((r) => { cum += r.net_cash_flow_lkr; dcum += r.discounted_cash_flow_lkr; r.cumulative_cash_flow_lkr = round(cum); r.cumulative_discounted_cash_flow_lkr = round(dcum); });
   const cashValues = cashFlow.map((r)=>r.net_cash_flow_lkr);
-  const npv = xnpv(discountRate, cashValues);
-  const irrValue = Math.min(...cashValues) < 0 && Math.max(...cashValues) > 0 ? irr(cashValues) : null;
+  const metricCashValues = cashFlow
+    .filter((r) => r.year_index <= financialMetricYears)
+    .map((r)=>r.net_cash_flow_lkr);
+  const npv = xnpv(discountRate, metricCashValues);
+  const irrValue = Math.min(...metricCashValues) < 0 && Math.max(...metricCashValues) > 0 ? irr(metricCashValues) : null;
   const profitabilityIndex = Number.isFinite(npv) ? (npv + netInitialInvestment) / Math.max(netInitialInvestment, 1) : null;
   const annualLifeCycleSavings = Number.isFinite(npv) ? npv * annuity(discountRate, analysisPeriod) : null;
 
@@ -301,7 +308,7 @@ function calculate(input = {}, settings = {}, equipmentRows = [], exportTariffs 
 
   return {
     workbook_version:'Step03 South west yearly export tariff model',
-    inputs_used:{ rooms, occupancy_percent:round(occupancy*100,2), configuration:'extraction_steam_turbine', financial_year:projectYear, analysis_period_years:analysisPeriod, discount_rate:discountRate, escalation_rate:escalation, grid_import_tariff_lkr_kwh:gridImportTariff, year1_export_tariff_lkr_kwh:round(exportTariffYear1,2), selected_biomass_fuel:biomassFuelType, selected_biomass_cost_lkr_kg:round(selectedBiomassCostKg,2), selected_biomass_lhv_kwh_kg:round(selectedBiomassLhv,2), biomass_fuel_cost_lkr_kwh:round(biomassFuelCostKwh,4), dispatch_15min_factor_source: (input.dispatch_15min_profile || input.dispatch_15min_factors) ? 'cluster 15-minute factors' : 'default profile' },
+    inputs_used:{ rooms, occupancy_percent:round(occupancy*100,2), configuration:'extraction_steam_turbine', financial_year:projectYear, analysis_period_years:analysisPeriod, financial_metric_years:financialMetricYears, discount_rate:discountRate, escalation_rate:escalation, grid_import_tariff_lkr_kwh:gridImportTariff, year1_export_tariff_lkr_kwh:round(exportTariffYear1,2), selected_biomass_fuel:biomassFuelType, selected_biomass_cost_lkr_kg:round(selectedBiomassCostKg,2), selected_biomass_lhv_kwh_kg:round(selectedBiomassLhv,2), biomass_fuel_cost_lkr_kwh:round(biomassFuelCostKwh,4), dispatch_15min_factor_source: (input.dispatch_15min_profile || input.dispatch_15min_factors) ? 'cluster 15-minute factors' : 'default profile' },
     step01_load_profile:{ available_room_nights:round(availableRoomNights), occupied_room_nights:round(occupiedRoomNights), annual_electricity_kwh:round(annualElectricity), annual_cooling_electricity_kwh:round(annualCoolingElectric), annual_cooling_thermal_kwh:round(annualCoolingThermal), dhw_heat_kwh_y:round(dhwHeat), laundry_heat_kwh_y:round(laundryHeat), annual_heating_demand_kwh_th:round(annualHeatingDemand), cooling_share_used:round(finalCoolingShare,4), source:measuredElectricity>0?'BMS/measured data':'benchmark room-based model' },
     load_profile:{ occupied_rooms:round(rooms*occupancy,2), daily_electricity_kwh:round(annualElectricity/365), annual_electricity_kwh:round(annualElectricity), daily_cooling_useful_kwh:round(annualCoolingThermal/365), daily_dhw_thermal_kwh:round(dhwHeat/365), monthly_profile:monthly.map((m)=>({month:m.month,electricity_kwh:m.hotel_electricity_kwh,cooling_kwh:m.cooling_thermal_kwh,dhw_kwh:m.heating_thermal_kwh})) },
     step02_technical_design:{ peak_hotel_electric_kw:round(peakElectricKw,2), peak_cooling_thermal_kw:round(peakCoolingThermalKw,2), peak_cooling_rt:round(peakCoolingRt,2), design_cooling_rt:round(designCoolingRt,2), main_chiller_share:round(mainShare,2), backup_chiller_share:round(backupShare,2), selected_main_chiller_rt:selectedMainRt, selected_backup_chiller_rt:selectedBackupRt, selected_total_absorption_chiller_rt:totalChillerRt, selected_total_absorption_chiller_capacity_kw:round(totalChillerRt*3.517), total_design_chiller_steam_thermal_input_kw:round(totalChillerSteamKw), average_heating_kw:round(avgHeatingKw,2), coincident_heating_kw:round(coincidentHeatingKw,2), total_process_steam_kw:round(totalProcessSteamKw,2), process_steam_flow_kg_h:round(processSteamFlowKgH,2), potential_turbine_output_kw:round(potentialTurbineKw,2), selected_turbine_kw:selectedTurbineKw, selected_turbine_inlet_steam_flow_kg_h:round(selectedTurbineSteamFlowKgH,2), exhaust_steam_design_kg_h:round(exhaustSteamKgH,2) },

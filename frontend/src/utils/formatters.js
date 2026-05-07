@@ -14,11 +14,23 @@ export function moneyShort(value) {
   return compactNumber(value, { suffix: ' LKR', decimals: 2 });
 }
 
+export function percentValue(value, decimals = 2) {
+  if (value === null || value === undefined || value === '') return 'N/A';
+  const x = Number(value);
+  if (!Number.isFinite(x)) return 'N/A';
+  const percent = Math.abs(x) > 0 && Math.abs(x) < 1 ? x * 100 : x;
+  return percent.toLocaleString('en-LK', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: decimals
+  });
+}
+
 export function formatValueByKey(key, value) {
   if (value === null || value === undefined) return 'N/A';
 
   const normalized = String(key || '').toLowerCase();
   if (normalized.includes('lkr')) return moneyShort(value);
+  if (normalized.includes('irr') || normalized.includes('percent') || normalized.endsWith('_pct')) return `${percentValue(value)}%`;
 
   if (typeof value === 'number') {
     return value.toLocaleString('en-LK', { maximumFractionDigits: 4 });

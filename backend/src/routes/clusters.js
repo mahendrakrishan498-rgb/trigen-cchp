@@ -5,6 +5,24 @@ const { getClusterDispatch15Min } = require('../services/clusterDispatch15MinSer
 
 const router = express.Router();
 
+function withWorkbookSouthWestDefaults(row) {
+  if (!/south|south-west|south\/south-west|south coast/i.test(row.cluster_name || '')) {
+    return row;
+  }
+
+  return {
+    ...row,
+    electricity_intensity_kwh_room_day: 50,
+    cooling_share: 0.591470460,
+    dhw_l_orn: 308,
+    occupancy_percent: 92,
+    grid_import_tariff_lkr_kwh: 16.291667,
+    selected_biomass_fuel: 'Gliricidia',
+    selected_biomass_delivered_cost_lkr_kg: 12,
+    selected_biomass_lhv_kwh_kg: 4.0
+  };
+}
+
 // Public route: used by Input tab to load hotel cluster defaults
 router.get('/', async (req, res, next) => {
   try {
@@ -37,7 +55,7 @@ router.get('/', async (req, res, next) => {
         cluster_name
     `);
 
-    res.json(rows.map(rowWithMonthlyFactors));
+    res.json(rows.map(withWorkbookSouthWestDefaults).map(rowWithMonthlyFactors));
   } catch (err) {
     next(err);
   }

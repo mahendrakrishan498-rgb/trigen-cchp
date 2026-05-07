@@ -174,10 +174,10 @@ CREATE TABLE IF NOT EXISTS cluster_defaults (
   electricity_intensity_kwh_room_day DECIMAL(18,6) DEFAULT 50,
   cooling_share DECIMAL(18,9) DEFAULT 0.591470460,
   dhw_l_orn DECIMAL(18,6) DEFAULT 308,
-  occupancy_percent DECIMAL(10,4) DEFAULT 83,
-  grid_import_tariff_lkr_kwh DECIMAL(18,6) DEFAULT 62,
+  occupancy_percent DECIMAL(10,4) DEFAULT 92,
+  grid_import_tariff_lkr_kwh DECIMAL(18,6) DEFAULT 16.291667,
   selected_biomass_fuel VARCHAR(100) DEFAULT 'Gliricidia',
-  selected_biomass_delivered_cost_lkr_kg DECIMAL(18,6) DEFAULT 35,
+  selected_biomass_delivered_cost_lkr_kg DECIMAL(18,6) DEFAULT 12,
   selected_biomass_lhv_kwh_kg DECIMAL(18,6) DEFAULT 4.0,
   notes TEXT,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -209,11 +209,11 @@ INSERT INTO cluster_defaults
 (cluster_name, electricity_intensity_kwh_room_day, cooling_share, dhw_l_orn, occupancy_percent, grid_import_tariff_lkr_kwh, selected_biomass_fuel, selected_biomass_delivered_cost_lkr_kg, selected_biomass_lhv_kwh_kg, notes)
 VALUES
 ('Colombo–Negombo', 58, 0.620000000, 320, 82, 68, 'Gliricidia', 36, 4.0, 'Urban/coastal cluster with high air-conditioning demand.'),
-('South/South-West Coast', 50, 0.591470460, 308, 83, 62, 'Gliricidia', 35, 4.0, 'South/South-West resort cluster based on project workbook assumptions.'),
+('South/South-West Coast', 50, 0.591470460, 308, 92, 16.291667, 'Gliricidia', 12, 4.0, 'South/South-West resort cluster based on project workbook assumptions.'),
 ('Cultural Triangle', 46, 0.540000000, 295, 76, 60, 'Mixed biomass', 34, 4.1, 'Heritage/tourism hotel cluster with moderate cooling demand.'),
 ('Hill Country', 42, 0.450000000, 330, 72, 58, 'Wood chips', 37, 4.2, 'Hill country cluster with lower cooling and higher hot-water demand.'),
 ('East Coast/Wildlife', 48, 0.570000000, 300, 74, 61, 'Agricultural residue', 38, 4.0, 'Seasonal coastal/wildlife hotel cluster.'),
-('Generic Hotel Case', 50, 0.591470460, 308, 83, 62, 'Gliricidia', 35, 4.0, 'General editable hotel case.')
+('Generic Hotel Case', 50, 0.591470460, 308, 92, 16.291667, 'Gliricidia', 12, 4.0, 'General editable hotel case.')
 ON DUPLICATE KEY UPDATE
 electricity_intensity_kwh_room_day=VALUES(electricity_intensity_kwh_room_day),
 cooling_share=VALUES(cooling_share),

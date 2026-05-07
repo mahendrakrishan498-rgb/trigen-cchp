@@ -3,14 +3,14 @@ import PageHeader from '../components/PageHeader';
 import MetricCard from '../components/MetricCard';
 import { apiRequest } from '../api';
 import { useProject } from '../state/ProjectContext';
-import { moneyShort } from '../utils/formatters';
+import { moneyShort, percentValue } from '../utils/formatters';
 
 const defaults = {
   title: 'South-West Hotel Step03 Feasibility',
   hotel_name: 'Sample South-West Resort',
   location: 'South/South-West Coast',
-  rooms: 250,
-  occupancy_percent: 83,
+  rooms: 150,
+  occupancy_percent: 92,
   electricity_intensity_kwh_room_day: 50,
   cooling_share: 0.591470459820233,
   electric_chiller_cop: 5,
@@ -19,14 +19,14 @@ const defaults = {
   cold_water_temp_c: 27.5,
   hot_water_temp_c: 55,
   hot_water_loss_factor: 0.25,
-  laundry_operation: 'No',
+  laundry_operation: 'Yes',
   financial_year: 2026,
   analysis_period_years: 25,
   discount_rate: 0.12,
   inflation_escalation_rate: 0.05,
-  grid_import_tariff_lkr_kwh: 62,
+  grid_import_tariff_lkr_kwh: 16.291666666666668,
   selected_biomass_fuel: 'Gliricidia',
-  selected_biomass_delivered_cost_lkr_kg: 35,
+  selected_biomass_delivered_cost_lkr_kg: 12,
   selected_biomass_lhv_kwh_kg: 4,
   main_chiller_share: 0.8
 };
@@ -468,7 +468,7 @@ const [showMonthlyProfile, setShowMonthlyProfile] = useState(false);
   
                   <tr>
                     <td>IRR</td>
-                    <td>{result.financial?.irr_percent || 0}%</td>
+                    <td>{percentValue(result.financial?.irr_percent)}%</td>
                   </tr>
   
                   <tr>
