@@ -65,7 +65,7 @@ function valueAt(obj, p, fallback = 'N/A') {
   const val = String(p).split('.').reduce((o, k) => (o ? o[k] : undefined), obj);
   return val ?? fallback;
 }
-const MAX_REPORT_PAGES = 13;
+const MAX_REPORT_PAGES = 14;
 
 const metricLabelMap = {
   npv_lkr: 'Net Present Value (NPV)',
@@ -215,7 +215,7 @@ function limitNotice(doc) {
       .fontSize(9)
       .fillColor('#b42318')
       .text(
-        'Report page limit reached. Some detailed tables/graphs were omitted to keep the report within 13 pages.',
+        `Report page limit reached. Some detailed tables/graphs were omitted to keep the report within ${MAX_REPORT_PAGES} pages.`,
         42,
         doc.y,
         {
