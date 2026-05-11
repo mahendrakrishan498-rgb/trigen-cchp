@@ -215,7 +215,7 @@ function limitNotice(doc) {
       .fontSize(9)
       .fillColor('#b42318')
       .text(
-        'Report page limit reached. Some detailed tables/graphs were omitted to keep the report within 12 pages.',
+        'Report page limit reached. Some detailed tables/graphs were omitted to keep the report within 13 pages.',
         42,
         doc.y,
         {
@@ -236,96 +236,44 @@ function ensureSpace(doc, requiredHeight, topY = 55) {
 }
 function cover(doc, project, inputs) {
   const hotel = project.hotel_name || inputs.hotel_name || 'Selected Hotel';
-  const cluster = project.location || inputs.location || 'Selected cluster';
-  const year = inputs.financial_year || inputs.project_year || new Date().getFullYear();
-  const img = path.join(__dirname, '..', '..', 'assets', 'cover-trigeneration.png');
+  const img = path.join(__dirname, '..', '..', 'assets', 'report-cover.png');
+  const generatedAt = new Date().toLocaleString('en-LK', {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 
-  doc.rect(0, 0, doc.page.width, doc.page.height).fill('#ffffff');
-  doc.rect(0, 0, doc.page.width, 118).fill('#0b2f2a');
-  doc.rect(0, 118, doc.page.width, 5).fill('#8bc34a');
+  doc.rect(0, 0, doc.page.width, doc.page.height).fill('#000000');
 
-  doc
-    .font('Helvetica-Bold')
-    .fontSize(23)
-    .fillColor('#ffffff')
-    .text('Biomass-Based Trigeneration CCHP Feasibility Report', 58, 46, {
-      width: 480,
-      align: 'center',
-      lineGap: 4
-    });
-
-  doc
-    .font('Helvetica')
-    .fontSize(10)
-    .fillColor('#d7eadf')
-    .text('Preliminary techno-economic and environmental assessment for hotel applications', 90, 102, {
-      width: 440,
-      align: 'center'
-    });
-
-  let coverImageRendered = false;
   if (fs.existsSync(img)) {
     try {
-      doc.image(img, 55, 150, { fit: [485, 260], align: 'center' });
-      coverImageRendered = true;
+      doc.image(img, 0, 0, {
+        width: doc.page.width,
+        height: doc.page.height
+      });
     } catch (err) {
       console.warn('Cover image could not be rendered:', err.message);
     }
   }
 
-  if (!coverImageRendered) {
-    doc.roundedRect(55, 155, 485, 210, 10).fillAndStroke('#f8fbfd', '#dbe7ef');
-    doc
-      .font('Helvetica-Bold')
-      .fontSize(18)
-      .fillColor('#0f5132')
-      .text('Biomass CCHP System Configuration', 75, 245, {
-        width: 445,
-        align: 'center'
-      });
-  }
-
-  const infoRows = [
-    ['Hotel name', hotel],
-    ['Cluster / location', cluster],
-    ['Project year', year],
-    ['Prepared by', 'Final Year Project Team'],
-    ['Department', 'Department of Mechanical Engineering, University of Moratuwa'],
-    ['Generated date', new Date().toLocaleDateString('en-LK')]
-  ];
-  let infoY = 438;
-  doc.font('Helvetica-Bold').fontSize(8).fillColor('#0d2130');
-  doc.rect(75, infoY, 155, 22).fillAndStroke('#e8f5f0', '#cfe4dc');
-  doc.rect(230, infoY, 290, 22).fillAndStroke('#e8f5f0', '#cfe4dc');
-  doc.text('Report information', 81, infoY + 7, { width: 143 });
-  doc.text('Details', 236, infoY + 7, { width: 278 });
-  infoY += 22;
-  infoRows.forEach(([label, value], index) => {
-    const bg = index % 2 ? '#ffffff' : '#f9fbfd';
-    doc.rect(75, infoY, 155, 22).fillAndStroke(bg, '#edf2f7');
-    doc.rect(230, infoY, 290, 22).fillAndStroke(bg, '#edf2f7');
-    doc.font('Helvetica-Bold').fontSize(8).fillColor('#1c2a35').text(label, 81, infoY + 6, { width: 143 });
-    doc.font('Helvetica').fontSize(8).fillColor('#1c2a35').text(String(value || '-'), 236, infoY + 6, { width: 278 });
-    infoY += 22;
-  });
+  doc
+    .font('Helvetica-Bold')
+    .fontSize(12)
+    .fillColor('#0b2f2a')
+    .text(hotel, 251.66, 235.91, {
+      width: 170,
+      align: 'center'
+    });
 
   doc
     .font('Helvetica')
     .fontSize(8.5)
-    .fillColor('#667085')
-    .text('This document is generated from the biomass-based trigeneration feasibility model and is intended for preliminary engineering decision support.', 78, 620, {
-      width: 440,
-      align: 'center',
-      lineGap: 2
-    });
-
-  doc
-    .font('Helvetica-Bold')
-    .fontSize(9.5)
-    .fillColor('#0f5132')
-    .text('Feasibility Project Report ', 78, 685, {
-      width: 440,
-      align: 'center'
+    .fillColor('#000000')
+    .text(`Generated: ${generatedAt}`, doc.page.width - 250, doc.page.height - 63.79, {
+      width: 210,
+      align: 'right'
     });
 }
 
@@ -348,7 +296,7 @@ function drawTOC(doc) {
   doc
     .font('Helvetica-Bold')
     .fontSize(22)
-    .fillColor('#0f5132')
+    .fillColor('#062f29')
     .text('Table of Contents', 60, 72);
 
   let y = 125;
@@ -414,7 +362,7 @@ function footer(doc) {
     // Outer page border
     doc
       .lineWidth(1.2)
-      .strokeColor('#90EE90')
+      .strokeColor('#06342d')
       .rect(24, 24, doc.page.width - 48, doc.page.height - 48)
       .stroke();
 
@@ -463,7 +411,7 @@ function section(doc, title) {
   doc
     .font('Helvetica-Bold')
     .fontSize(15)
-    .fillColor('#0f5132')
+    .fillColor('#062f29')
     .text(title, 42, titleY, {
       width: 510,
       align: 'left'
@@ -1153,6 +1101,8 @@ router.get('/:projectId/pdf', async (req, res, next) => {
     const summary = result.summary || {};
     const sizing = result.system_sizing || {};
     const financial = result.financial || {};
+    const fuel = result.fuel || {};
+    const feasibility = result.feasibility || {};
     const emissions = result.emissions || {};
     const monthly = result.monthly_dispatch || [];
     const cashFlow = result.cash_flow || [];
@@ -1175,6 +1125,8 @@ const dualChillerRt =
 const reportNpv = Number(financial.npv_lkr || summary.npv || 0);
 const reportIrr = Number(financial.irr_percent || summary.irr_percent || 0);
 const reportPayback = Number(financial.simple_payback_years || summary.simple_payback_years || 0);
+const reportDiscountedPayback = Number(financial.discounted_payback_years || summary.discounted_payback_years || 0);
+const reportProfitabilityIndex = Number(financial.profitability_index || summary.profitability_index || 0);
 const reportDiscountRate = Number(inputs.discount_rate || inputs.target_return_percent || 0);
 const reportCo2Reduction = Number(emissions.co2_reduction_tonnes_year || emissions.co2_reduction_ton || summary.co2_reduction_ton || 0);
 const reportTurbineKw = Number(sizing.turbine_kw || summary.turbine_kw || 0);
@@ -1182,39 +1134,55 @@ const reportCapex = Number(financial.net_initial_investment_lkr || result.step03
 const reportAnnualNetBenefit = Number(financial.year1_net_project_savings_lkr_y || financial.annual_life_cycle_savings_lkr_y || summary.year1_net_project_savings_lkr || 0);
 const reportExportRevenue = Number(financial.grid_export_revenue_year1_lkr_y || result.energy_balance?.annual_grid_export_revenue_lkr || 0);
 const reportBiomassCost = Number(financial.proposed_annual_biomass_fuel_cost_lkr_y || result.fuel?.annual_biomass_cost_lkr || 0);
+const sustainableScenario =
+  result.inputs_used?.sustainable_market_scenario ||
+  inputs.sustainable_market_scenario ||
+  inputs.consider_sustainable_tourism_premium_market_scenario ||
+  'No';
 
 // Row 1
 kpi(
   doc,
   42,
   y0,
-  150,
+  118,
   'NPV',
-  money(reportNpv),
-  'LKR',
+  moneyShort(reportNpv),
+  '',
   '#0b74b8'
 );
 
 kpi(
   doc,
-  210,
+  172,
   y0,
-  150,
+  118,
   'IRR',
   `${n(reportIrr, 2)}%`,
-  'project cash flow',
+  'cash flow',
   '#14a879'
 );
 
 kpi(
   doc,
-  378,
+  302,
   y0,
-  150,
-  'Simple payback',
-  n(reportPayback, 2),
+  118,
+  'Profitability index',
+  n(reportProfitabilityIndex, 2),
+  'ratio',
+  '#6941c6'
+);
+
+kpi(
+  doc,
+  432,
+  y0,
+  118,
+  'Discounted payback',
+  reportDiscountedPayback ? n(reportDiscountedPayback, 2) : 'N/A',
   'years',
-  '#f79009'
+  '#b42318'
 );
 
 // Row 2
@@ -1222,7 +1190,18 @@ kpi(
   doc,
   42,
   y0 + 82,
-  150,
+  118,
+  'Simple payback',
+  n(reportPayback, 2),
+  'years',
+  '#f79009'
+);
+
+kpi(
+  doc,
+  172,
+  y0 + 82,
+  118,
   'GHG reduction',
   n(reportCo2Reduction, 0),
   'tCO2/y',
@@ -1231,24 +1210,24 @@ kpi(
 
 kpi(
   doc,
-  210,
+  302,
   y0 + 82,
-  150,
+  118,
   'Turbine',
   n(reportTurbineKw, 0),
   'kW',
-  '#b42318'
+  '#0c6b52'
 );
 
 kpi(
   doc,
-  378,
+  432,
   y0 + 82,
-  150,
+  118,
   'Dual chiller',
   n(dualChillerRt, 0),
   'RT',
-  '#0c6b52'
+  '#344054'
 );
 
 // Move cursor below KPI cards
@@ -1258,7 +1237,8 @@ doc.y = y0 + 170;
       { k: 'Hotel name', v: hotelName },
       { k: 'Location / cluster', v: project.location || inputs.location || '-' },
       { k: 'Financial year', v: inputs.financial_year || '-' },
-      { k: 'Number of rooms', v: inputs.rooms || '-' }
+      { k: 'Number of rooms', v: inputs.rooms || '-' },
+      { k: 'Sustainable tourism premium scenario', v: sustainableScenario }
     ], [
       { label: 'Item', get: (r) => r.k },
       { label: 'Value', get: (r) => r.v }
@@ -1284,21 +1264,91 @@ doc.y = y0 + 170;
 
     section(doc, '2. Input Assumptions');
 
-    table(doc, [
-      ['Electricity intensity', inputs.electricity_intensity_kwh_room_day, 'kWh/room/day'],
-      ['Cooling share', inputs.cooling_share, 'fraction'],
-      ['Electric chiller COP', inputs.electric_chiller_cop, '-'],
-      ['Absorption chiller COP', inputs.absorption_chiller_cop, '-'],
-      ['DHW demand', inputs.dhw_l_orn, 'L/ORN'],
-      ['Grid import tariff', inputs.grid_import_tariff_lkr_kwh, 'LKR/kWh'],
-      ['Selected biomass fuel', inputs.selected_biomass_fuel, '-']
-    ].map(([a, b, c]) => ({ a, b, c })), [
-      { label: 'Input', get: (r) => r.a },
-      { label: 'Value', get: (r) => typeof r.b === 'number' ? n(r.b, 4) : (r.b ?? '-') },
-      { label: 'Unit', get: (r) => r.c }
+    const inputsUsed = result.inputs_used || {};
+    const assumptionValue = (key, fallback = '-') => {
+      const fromInputs = inputs[key];
+      const fromUsed = inputsUsed[key];
+      const value = fromInputs ?? fromUsed ?? fallback;
+      return typeof value === 'number' ? n(value, 4) : String(value ?? fallback);
+    };
+    const inputAssumptionRows = [
+      ['Rooms', assumptionValue('rooms')],
+      ['Occupancy (%)', assumptionValue('occupancy_percent')],
+      ['Configuration', assumptionValue('configuration')],
+      ['Financial year', assumptionValue('financial_year')],
+      ['Analysis period (years)', assumptionValue('analysis_period_years')],
+      ['Financial metric years', assumptionValue('financial_metric_years')],
+      ['Discount rate', assumptionValue('discount_rate')],
+      ['Escalation rate', assumptionValue('escalation_rate', assumptionValue('inflation_escalation_rate'))],
+      ['Grid import tariff (LKR/kWh)', assumptionValue('grid_import_tariff_lkr_kwh')],
+      ['Year-1 export tariff (LKR/kWh)', assumptionValue('year1_export_tariff_lkr_kwh', assumptionValue('grid_export_tariff_lkr_kwh'))],
+      ['Electricity intensity (kWh/room/day)', assumptionValue('electricity_intensity_kwh_room_day')],
+      ['Cooling share', assumptionValue('cooling_share')],
+      ['Existing electric chiller COP', assumptionValue('electric_chiller_cop')],
+      ['Absorption chiller COP', assumptionValue('absorption_chiller_cop')],
+      ['DHW demand (L/ORN)', assumptionValue('dhw_l_orn')],
+      ['Cold water temperature (C)', assumptionValue('cold_water_temp_c')],
+      ['Hot water temperature (C)', assumptionValue('hot_water_temp_c')],
+      ['Hot water loss factor', assumptionValue('hot_water_loss_factor')],
+      ['Laundry operation', assumptionValue('laundry_operation')],
+      ['Existing boiler efficiency', assumptionValue('existing_boiler_efficiency')],
+      ['Biomass boiler efficiency', assumptionValue('new_biomass_steam_generator_efficiency')],
+      ['Steam enthalpy rise (kJ/kg)', assumptionValue('steam_enthalpy_rise_kj_kg')],
+      ['Peak cooling sizing margin', assumptionValue('peak_cooling_sizing_margin')],
+      ['Turbine yield (kWh/kg steam)', assumptionValue('extraction_turbine_specific_yield_kwh_kg')],
+      ['Steam-to-turbine utilization', assumptionValue('steam_to_turbine_utilization_factor')],
+      ['Heating coincidence factor', assumptionValue('heating_coincidence_factor')],
+      ['Main chiller share', assumptionValue('main_chiller_share')],
+      ['Selected biomass fuel', assumptionValue('selected_biomass_fuel')],
+      ['Biomass cost (LKR/kg)', assumptionValue('selected_biomass_cost_lkr_kg', assumptionValue('selected_biomass_delivered_cost_lkr_kg'))],
+      ['Biomass LHV (kWh/kg)', assumptionValue('selected_biomass_lhv_kwh_kg')],
+      ['Biomass fuel cost (LKR/kWh)', assumptionValue('biomass_fuel_cost_lkr_kwh')],
+      ['Chiller CAPEX (LKR/RT)', assumptionValue('absorption_chiller_specific_capex_lkr_rt')],
+      ['Turbine CAPEX (LKR/kW)', assumptionValue('extraction_turbine_specific_capex_lkr_kw')],
+      ['Steam generator CAPEX', assumptionValue('steam_generator_specific_capex_lkr_kg_h')],
+      ['Grid interconnection CAPEX', assumptionValue('grid_interconnection_specific_capex_lkr_kw')],
+      ['Installation factor', assumptionValue('installation_factor')],
+      ['Engineering factor', assumptionValue('engineering_development_factor')],
+      ['Contingency factor', assumptionValue('contingency_factor')],
+      ['Fixed O&M rate', assumptionValue('fixed_om_rate_capex')],
+      ['Variable turbine O&M', assumptionValue('variable_turbine_om_lkr_kwh')],
+      ['Insurance/admin rate', assumptionValue('insurance_admin_rate_capex')],
+      ['Major overhaul year', assumptionValue('major_overhaul_year')],
+      ['Major overhaul fraction', assumptionValue('major_overhaul_fraction_capex')],
+      ['Salvage value fraction', assumptionValue('salvage_value_fraction_capex')],
+      ['Grid emission factor', assumptionValue('grid_emission_kgco2_kwh')],
+      ['Biomass emission factor', assumptionValue('biomass_emission_kgco2_kwh_fuel')],
+      ['Sustainable tourism premium scenario', sustainableScenario],
+      ['Dispatch factor source', assumptionValue('dispatch_15min_factor_source')]
+    ];
+
+    if (String(sustainableScenario).toLowerCase() === 'yes') {
+      inputAssumptionRows.push(
+        ['Sustainable room rate (LKR/night)', assumptionValue('sustainable_room_rate_lkr')],
+        ['Room price increase fraction', assumptionValue('sustainable_room_price_increase_fraction')]
+      );
+    }
+
+    const visibleAssumptionRows = inputAssumptionRows.filter(([, value]) => {
+      const text = String(value ?? '').trim();
+      return text && text !== '-';
+    });
+    const pairedAssumptionRows = [];
+    for (let i = 0; i < visibleAssumptionRows.length; i += 2) {
+      const left = visibleAssumptionRows[i] || ['', ''];
+      const right = visibleAssumptionRows[i + 1] || ['', ''];
+      pairedAssumptionRows.push({ a: left[0], b: left[1], c: right[0], d: right[1] });
+    }
+
+    table(doc, pairedAssumptionRows, [
+      { label: 'Assumption', get: (r) => r.a },
+      { label: 'Value', get: (r) => r.b },
+      { label: 'Assumption', get: (r) => r.c },
+      { label: 'Value', get: (r) => r.d }
     ], {
-      widths: [250, 160, 100],
-      maxRows: 18
+      widths: [150, 105, 150, 105],
+      rowH: 17,
+      maxRows: 26
     });
     safeAddPage(doc)
     section(doc, '3. Load Profile Analysis');
@@ -1749,7 +1799,85 @@ doc.y = y0 + 170;
 
     
     safeAddPage(doc);
-    section(doc, '11. Methodology Notes');
+    section(doc, '11. Feasibility Status and Decision Summary');
+
+    const reportAnalysisPeriod = Number(inputs.analysis_period_years || result.inputs_used?.analysis_period_years || 0);
+    const reportMonthlyBiomassTonnes = Number(fuel.monthly_average_biomass_tonnes || 0);
+    const fallbackFeasibilityRows = {
+      npv_status: reportNpv > 0 ? 'PASS' : 'FAIL',
+      irr_status: reportIrr > 0 ? 'PASS' : 'FAIL',
+      simple_payback_status: reportPayback > 0 && (!reportAnalysisPeriod || reportPayback <= reportAnalysisPeriod) ? 'PASS' : 'FAIL',
+      discounted_payback_status: reportDiscountedPayback > 0 && (!reportAnalysisPeriod || reportDiscountedPayback <= reportAnalysisPeriod) ? 'PASS' : 'FAIL',
+      biomass_benchmark_status: reportMonthlyBiomassTonnes > 0 && reportMonthlyBiomassTonnes <= 1500 ? 'PASS' : 'FAIL'
+    };
+    const finalFeasibilityDecision =
+      feasibility.final_decision ||
+      (Object.values(fallbackFeasibilityRows).every((status) => status === 'PASS') ? 'FEASIBLE' : 'NOT FEASIBLE');
+    const feasibilityRows = [
+      {
+        item: 'NPV status',
+        value: feasibility.npv_status || fallbackFeasibilityRows.npv_status,
+        benchmark: feasibility.npv_benchmark || 'NPV > 0',
+        note: moneyShort(reportNpv)
+      },
+      {
+        item: 'IRR status',
+        value: feasibility.irr_status || fallbackFeasibilityRows.irr_status,
+        benchmark: feasibility.irr_benchmark || 'IRR > 0',
+        note: `${n(reportIrr, 2)}%`
+      },
+      {
+        item: 'Simple payback status',
+        value: feasibility.simple_payback_status || fallbackFeasibilityRows.simple_payback_status,
+        benchmark: feasibility.simple_payback_benchmark || '<= analysis period',
+        note: `${n(reportPayback, 2)} years`
+      },
+      {
+        item: 'Discounted payback status',
+        value: feasibility.discounted_payback_status || fallbackFeasibilityRows.discounted_payback_status,
+        benchmark: feasibility.discounted_payback_benchmark || '<= analysis period',
+        note: reportDiscountedPayback ? `${n(reportDiscountedPayback, 2)} years` : 'N/A'
+      },
+      {
+        item: 'Biomass benchmark status',
+        value: feasibility.biomass_benchmark_status || fallbackFeasibilityRows.biomass_benchmark_status,
+        benchmark: feasibility.biomass_benchmark || '<= 1500 t/mo',
+        note: reportMonthlyBiomassTonnes ? `${n(reportMonthlyBiomassTonnes, 2)} t/mo` : 'N/A'
+      },
+      {
+        item: 'Final decision',
+        value: finalFeasibilityDecision,
+        benchmark: 'All checks PASS',
+        note: 'Overall screening result.'
+      }
+    ];
+
+    table(doc, feasibilityRows, [
+      { label: 'Feasibility decision', get: (r) => r.item },
+      { label: 'Value', get: (r) => r.value },
+      { label: 'Benchmark', get: (r) => r.benchmark },
+      { label: 'Source / note', get: (r) => r.note }
+    ], {
+      widths: [145, 85, 115, 165],
+      rowH: 26,
+      maxRows: 8
+    });
+
+    const failedChecks = feasibilityRows
+      .filter((row) => row.value === 'FAIL')
+      .map((row) => row.item.replace(' status', '').toLowerCase());
+    const feasibilityConclusion = finalFeasibilityDecision === 'FEASIBLE'
+      ? 'Conclusion: The project satisfies the selected screening criteria. The NPV, IRR, payback indicators and biomass supply benchmark support proceeding to detailed engineering, supplier quotation, and implementation-level validation.'
+      : `Conclusion: The project is not fully feasible under the selected screening criteria${failedChecks.length ? ` because the ${failedChecks.join(', ')} check${failedChecks.length > 1 ? 's' : ''} did not pass` : ''}. The case should be improved through CAPEX optimisation, tariff review, biomass supply confirmation, or operating-cost adjustment before implementation approval.`;
+
+    reportParagraph(doc, feasibilityConclusion, { height: 58, bold: true });
+
+    reportParagraph(
+      doc,
+      `${feasibility.biomass_supply_note || 'Biomass use above 1500 t/mo is treated as not feasible for this study unless supply is contractually proven.'} The final feasibility status should therefore be interpreted as a preliminary screening result for decision support, not as final implementation approval.`,
+      { height: 64 }
+    );
+    section(doc, '12. Methodology Notes');
 
     const methodologyNotes = [
       ['Energy Demand Assessment', 'The energy demand assessment is carried out using benchmark hotel energy intensities, selected cluster factors, and uploaded BMS or measured energy data where available. Annual electrical energy demand is estimated from the selected hotel cluster and number of rooms or obtained directly from uploaded measurements. Cooling demand is derived from existing chiller electricity consumption and chiller COP, while thermal demand is estimated from domestic hot water, laundry, and other process heat requirements.'],
@@ -1795,10 +1923,10 @@ doc.y = y0 + 170;
     
     
     // =========================
-    // 12. Model Limitations and Assumptions
+    // 13. Model Limitations and Assumptions
     // =========================
     
-    section(doc, '12. Model Limitations and Assumptions');
+    section(doc, '13. Model Limitations and Assumptions');
 
     reportParagraph(
       doc,
@@ -1807,10 +1935,10 @@ doc.y = y0 + 170;
     );
 
     // =========================
-    // 13. Final Conclusion
+    // 14. Final Conclusion
     // =========================
 
-    section(doc, '13. Final Conclusion');
+    section(doc, '14. Final Conclusion');
     
     // Safe values for conclusion
     const conclusionHotelName =

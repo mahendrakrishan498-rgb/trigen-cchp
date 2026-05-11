@@ -12,7 +12,7 @@ export default function Dashboard() {
   const cf = (result?.cash_flow || []).filter((r) => r.year_index <= 25);
   return <>
     <PageHeader title="Dashboard" subtitle="Savings-based financial feasibility summary for biomass-fired trigeneration plant." />
-    {!result && <div className="notice">No selected project. Go to Step03 Inputs or Projects.</div>}
+    {!result && <div className="notice">No selected project. Go to Inputs or Projects.</div>}
     {result && <>
       <div className="grid cards">
         <MetricCard label="NPV" value={moneyShort(result.financial?.npv_lkr)} unit="" />

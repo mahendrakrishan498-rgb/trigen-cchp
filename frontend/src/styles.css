@@ -76,6 +76,9 @@ nav a:hover {
 .data-table th, .data-table td { border-bottom: 1px solid #edf2f7; text-align: left; padding: 10px; vertical-align: top; }
 .data-table th { background: #f8fbfd; color: #405363; }
 .data-table td input { margin: 0; min-width: 100px; }
+.data-table td.status-cell { font-weight: 800; }
+.data-table td.status-pass { background: #dcfae6; color: #067647; }
+.data-table td.status-fail { background: #fee4e2; color: #b42318; }
 .notice { padding: 16px; background: #fff8e5; border: 1px solid #ffe7a6; border-radius: 14px; }
 .success { padding: 12px; background: #e8fff5; color: #075c45; border-radius: 12px; }
 .error { padding: 12px; background: #ffecec; color: #9f1c1c; border-radius: 12px; }

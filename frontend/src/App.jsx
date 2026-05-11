@@ -13,6 +13,7 @@ import Financial from './pages/Financial';
 import Emissions from './pages/Emissions';
 import Sensitivity from './pages/Sensitivity';
 import Pscad from './pages/Pscad';
+import Feasibility from './pages/Feasibility';
 import Comparison from './pages/Comparison';
 import Reports from './pages/Reports';
 import Projects from './pages/Projects';
@@ -38,6 +39,7 @@ export default function App() {
     <Route path="/emissions" element={<P><Emissions /></P>} />
     <Route path="/sensitivity" element={<P><Sensitivity /></P>} />
     <Route path="/pscad" element={<P><Pscad /></P>} />
+    <Route path="/feasibility" element={<P><Feasibility /></P>} />
     <Route path="/comparison" element={<P><Comparison /></P>} />
     <Route path="/reports" element={<P><Reports /></P>} />
     <Route path="/projects" element={<P><Projects /></P>} />

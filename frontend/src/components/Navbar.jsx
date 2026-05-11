@@ -13,6 +13,7 @@ const links = [
   ['/emissions', 'Emission Reduction'],
   ['/sensitivity', 'Sensitivity'],
   ['/pscad', 'Design Analysis'],
+  ['/feasibility', 'Feasibility'],
   ['/reports', 'Report'],
   ['/projects', 'Saved Case Studies']
 ];

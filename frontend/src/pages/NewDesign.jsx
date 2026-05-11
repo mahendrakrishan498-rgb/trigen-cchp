@@ -28,7 +28,10 @@ const defaults = {
   selected_biomass_fuel: 'Gliricidia',
   selected_biomass_delivered_cost_lkr_kg: 12,
   selected_biomass_lhv_kwh_kg: 4,
-  main_chiller_share: 0.8
+  main_chiller_share: 0.8,
+  sustainable_market_scenario: 'Yes',
+  sustainable_room_rate_lkr: 30000,
+  sustainable_room_price_increase_fraction: 0.1
 };
 
 const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -385,15 +388,39 @@ const [showMonthlyProfile, setShowMonthlyProfile] = useState(false);
           </div>
   
           <label>
-            CAPEX override (optional LKR)
-            <input
-              type="number"
-              placeholder="Leave blank to use Excel CAPEX build-up"
-              onChange={(e) =>
-                setField('capex_lkr', e.target.value ? Number(e.target.value) : undefined)
-              }
-            />
+            Sustainable tourism premium market scenario in cash flow
+            <select
+              value={inputs.sustainable_market_scenario}
+              onChange={(e) => setField('sustainable_market_scenario', e.target.value)}
+            >
+              <option>Yes</option>
+              <option>No</option>
+            </select>
           </label>
+
+          {inputs.sustainable_market_scenario === 'Yes' && (
+            <div className="form-grid">
+              <label>
+                Sustainable room rate (LKR/night)
+                <input
+                  type="number"
+                  step="any"
+                  value={inputs.sustainable_room_rate_lkr ?? ''}
+                  onChange={(e) => setField('sustainable_room_rate_lkr', Number(e.target.value))}
+                />
+              </label>
+
+              <label>
+                Room price increase fraction
+                <input
+                  type="number"
+                  step="any"
+                  value={inputs.sustainable_room_price_increase_fraction ?? ''}
+                  onChange={(e) => setField('sustainable_room_price_increase_fraction', Number(e.target.value))}
+                />
+              </label>
+            </div>
+          )}
   
           <div className="button-row">
             <button onClick={save}>Save Project</button>
