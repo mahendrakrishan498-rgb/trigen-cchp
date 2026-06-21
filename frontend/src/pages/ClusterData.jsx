@@ -10,10 +10,10 @@ const blank = {
   electricity_intensity_kwh_room_day: 50,
   cooling_share: 0.59147046,
   dhw_l_orn: 308,
-  occupancy_percent: 83,
-  grid_import_tariff_lkr_kwh: 62,
+  occupancy_percent: 92,
+  grid_import_tariff_lkr_kwh: 16.291667,
   selected_biomass_fuel: 'Gliricidia',
-  selected_biomass_delivered_cost_lkr_kg: 35,
+  selected_biomass_delivered_cost_lkr_kg: 12,
   selected_biomass_lhv_kwh_kg: 4.0,
   monthly_factors: defaultMonthlyFactors,
   notes: ''

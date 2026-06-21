@@ -128,7 +128,7 @@ INSERT INTO assumption_settings (setting_key, setting_value, unit, description) 
 ('discount_rate','0.12','fraction','Discount rate used for NPV'),
 ('inflation_escalation_rate','0.05','fraction','Escalation applied to annual costs and benefits'),
 ('grid_import_tariff_lkr_kwh','16.2916666667','Rs/kWh','Hotel Rate 2 weighted average tariff from Excel'),
-('grid_export_tariff_lkr_kwh','43.27','Rs/kWh','Year-linked export tariff for 2026 from Excel'),
+('grid_export_tariff_lkr_kwh','46.21','Rs/kWh','Export tariff used in the final16 cluster workbooks'),
 ('financial_year','2026','year','User-selectable financial/project start year'),
 ('selected_biomass_fuel','Gliricidia','type','Selected biomass fuel'),
 ('cinnamon_delivered_cost_lkr_kg','25','Rs/kg','Cinnamon delivered cost'),
@@ -155,7 +155,7 @@ INSERT INTO assumption_settings (setting_key, setting_value, unit, description) 
 ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value), unit=VALUES(unit), description=VALUES(description);
 
 INSERT INTO export_tariffs (year, om_tariff_lkr_kwh, fuel_tariff_lkr_kwh, fixed_tariff_lkr_kwh) VALUES
-(2026,2.35,23,17.92),(2027,2.60944,25.093,17.92),(2028,2.897522176,27.376463,17.92),(2029,3.217408624,29.867721,17.92),(2030,3.572610536,32.585684,17.92),(2031,3.967026740,35.550981,17.92),(2032,4.404986492,38.786120,17.92),(2033,4.891297000,42.315657,17.92),(2034,5.431296189,46.166382,9.02),(2035,6.030911288,50.367523,9.02),(2036,6.696723895,54.950967,9.02),(2037,7.436042213,59.951505,9.02),(2038,8.256981273,65.407092,9.02),(2039,9.168552005,71.359138,9.02),(2040,10.180760147,77.852819,9.02),(2041,15.11,84.937426,5.95),(2042,16.778144,92.666732,5.95),(2043,18.630451098,101.099404,5.95),(2044,20.687252899,110.299450,5.95),(2045,22.971125619,120.336700,5.95),(2046,25.507137887,131.287340,5.95),(2047,28.323125910,143.234487,5.95),(2048,31.449999010,156.268826,5.95),(2049,34.922078901,170.489289,5.95),(2050,38.777476412,186.003814,5.95),(2051,43.058509808,202.930161,5.95),(2052,47.812169290,221.396806,5.95),(2053,53.090632780,241.543915,5.95),(2054,58.951838639,263.524412,5.95),(2055,65.460121625,287.505133,5.95),(2056,72.686919052,313.668100,5.95),(2057,80.711554915,342.211897,5.95)
+(2026,0,46.21,0),(2027,0,46.21,0),(2028,0,46.21,0),(2029,0,46.21,0),(2030,0,46.21,0),(2031,0,46.21,0),(2032,0,46.21,0),(2033,0,46.21,0),(2034,0,46.21,0),(2035,0,46.21,0),(2036,0,46.21,0),(2037,0,46.21,0),(2038,0,46.21,0),(2039,0,46.21,0),(2040,0,46.21,0),(2041,0,46.21,0),(2042,0,46.21,0),(2043,0,46.21,0),(2044,0,46.21,0),(2045,0,46.21,0),(2046,0,46.21,0),(2047,0,46.21,0),(2048,0,46.21,0),(2049,0,46.21,0),(2050,0,46.21,0),(2051,0,46.21,0),(2052,0,46.21,0),(2053,0,46.21,0),(2054,0,46.21,0),(2055,0,46.21,0),(2056,0,46.21,0),(2057,0,46.21,0)
 ON DUPLICATE KEY UPDATE om_tariff_lkr_kwh=VALUES(om_tariff_lkr_kwh), fuel_tariff_lkr_kwh=VALUES(fuel_tariff_lkr_kwh), fixed_tariff_lkr_kwh=VALUES(fixed_tariff_lkr_kwh);
 
 INSERT INTO equipment_quotations (item_name, config_type, room_capacity, capacity_value, capacity_unit, cost_lkr, supplier, reference_note) VALUES
@@ -208,7 +208,7 @@ CREATE TABLE IF NOT EXISTS cluster_dispatch_15min (
 INSERT INTO cluster_defaults
 (cluster_name, electricity_intensity_kwh_room_day, cooling_share, dhw_l_orn, occupancy_percent, grid_import_tariff_lkr_kwh, selected_biomass_fuel, selected_biomass_delivered_cost_lkr_kg, selected_biomass_lhv_kwh_kg, notes)
 VALUES
-('Colombo–Negombo', 58, 0.620000000, 320, 82, 68, 'Gliricidia', 36, 4.0, 'Urban/coastal cluster with high air-conditioning demand.'),
+('Colombo–Negombo', 58, 0.620000000, 320, 82, 16.291667, 'Gliricidia', 36, 4.0, 'Urban/coastal cluster with high air-conditioning demand.'),
 ('South/South-West Coast', 50, 0.591470460, 308, 92, 16.291667, 'Gliricidia', 12, 4.0, 'South/South-West resort cluster based on project workbook assumptions.'),
 ('Cultural Triangle', 46, 0.540000000, 295, 76, 60, 'Mixed biomass', 34, 4.1, 'Heritage/tourism hotel cluster with moderate cooling demand.'),
 ('Hill Country', 42, 0.450000000, 330, 72, 58, 'Wood chips', 37, 4.2, 'Hill country cluster with lower cooling and higher hot-water demand.'),

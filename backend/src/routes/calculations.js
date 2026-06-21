@@ -100,6 +100,23 @@ function southWestWorkbookExportTariffs() {
   return EXPORT_TARIFFS;
 }
 
+function clusterColdWaterTemp(location) {
+  if (/hill/i.test(location || '')) return 24;
+  if (/airport|negombo|heritage|colombo/i.test(location || '')) return 28;
+  if (isSouthWestLocation(location)) return 27.5;
+  return null;
+}
+
+function withClusterWorkbookDefaults(inputs) {
+  const coldWaterTemp = clusterColdWaterTemp(inputs.location);
+  if (coldWaterTemp === null) return inputs;
+
+  return {
+    ...inputs,
+    cold_water_temp_c: coldWaterTemp
+  };
+}
+
 function withSouthWestWorkbookDefaults(inputs) {
   if (!isSouthWestLocation(inputs.location)) return inputs;
 
@@ -109,9 +126,12 @@ function withSouthWestWorkbookDefaults(inputs) {
     electricity_intensity_kwh_room_day: 50,
     cooling_share: 0.591470459820233,
     dhw_l_orn: 308,
-    laundry_operation: 'Yes',
+    cold_water_temp_c: 27.5,
+    hot_water_temp_c: 55,
+    hot_water_loss_factor: 0.25,
+    laundry_operation: 'No',
     grid_import_tariff_lkr_kwh: 16.291666666666668,
-    grid_export_tariff_lkr_kwh: 43.27,
+    grid_export_tariff_lkr_kwh: 46.21,
     selected_biomass_fuel: 'Gliricidia',
     selected_biomass_delivered_cost_lkr_kg: 12,
     selected_biomass_lhv_kwh_kg: 4,
@@ -121,12 +141,13 @@ function withSouthWestWorkbookDefaults(inputs) {
     new_biomass_steam_generator_efficiency: 0.85,
     steam_enthalpy_rise_kj_kg: 2100,
     turbine_steam_operating_hours_y: 8760,
+    grid_exchange_method: 'profile',
     workbook_turbine_kw_per_room: 0,
     workbook_chiller_rt_per_room: 0,
-    financial_year: 2026,
-    analysis_period_years: 25,
+    financial_year: 2027,
+    analysis_period_years: 20,
     financial_metric_years: 20,
-    inflation_escalation_rate: 0.05,
+    inflation_escalation_rate: 0.025,
     absorption_chiller_specific_capex_lkr_rt: 220000,
     extraction_turbine_specific_capex_lkr_kw: 300000,
     steam_generator_specific_capex_lkr_kg_h: 18000,
@@ -144,7 +165,7 @@ function withSouthWestWorkbookDefaults(inputs) {
     engineering_development_factor: 0.08,
     contingency_factor: 0.10,
     fixed_om_rate_capex: 0.03,
-    variable_turbine_om_lkr_kwh: 1.5,
+    variable_turbine_om_lkr_kwh: 0.3,
     insurance_admin_rate_capex: 0.005,
     major_overhaul_year: 10,
     major_overhaul_fraction_capex: 0.1,
@@ -154,19 +175,16 @@ function withSouthWestWorkbookDefaults(inputs) {
 }
 
 function southWestDispatchFactors() {
-  const averageElectricKw = southWestDispatch15Min.reduce((sum, row) => sum + Number(row[1] || 0), 0) / southWestDispatch15Min.length;
-  const averageCoolingKw = southWestDispatch15Min.reduce((sum, row) => sum + Number(row[2] || 0), 0) / southWestDispatch15Min.length;
-
-  return southWestDispatch15Min.map(([timeFraction, hotelElectricKw, coolingThermalKw]) => ({
+  return southWestDispatch15Min.map(([timeFraction, electricFactor, coolingFactor]) => ({
     time_fraction: Number(timeFraction || 0),
     time_hour: Number(timeFraction || 0) * 24,
-    electric_factor: averageElectricKw > 0 ? Number(hotelElectricKw || 0) / averageElectricKw : 1,
-    cooling_factor: averageCoolingKw > 0 ? Number(coolingThermalKw || 0) / averageCoolingKw : 1
+    electric_factor: Number(electricFactor || 0) || 1,
+    cooling_factor: Number(coolingFactor || 0) || 1
   }));
 }
 
 async function withClusterDispatchFactors(inputs) {
-  const normalizedInputs = withSouthWestWorkbookDefaults(inputs);
+  const normalizedInputs = withSouthWestWorkbookDefaults(withClusterWorkbookDefaults(inputs));
   const location = normalizedInputs.location || '';
   if (!location) return normalizedInputs;
 

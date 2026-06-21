@@ -87,8 +87,8 @@ router.get('/clusters/template', async (req, res) => {
   res.setHeader('Content-Disposition', 'attachment; filename="cluster_defaults_template.csv"');
   res.send([
     'cluster_name,electricity_intensity_kwh_room_day,cooling_share,dhw_l_orn,occupancy_percent,grid_import_tariff_lkr_kwh,selected_biomass_fuel,selected_biomass_delivered_cost_lkr_kg,selected_biomass_lhv_kwh_kg,monthly_factor_jan,monthly_factor_feb,monthly_factor_mar,monthly_factor_apr,monthly_factor_may,monthly_factor_jun,monthly_factor_jul,monthly_factor_aug,monthly_factor_sep,monthly_factor_oct,monthly_factor_nov,monthly_factor_dec,notes',
-    'Colombo–Negombo,58,0.62,320,82,68,Gliricidia,36,4.0,Urban coastal hotel cluster',
-    'South/South-West Coast,50,0.59147046,308,83,62,Gliricidia,35,4.0,South/South-West resort cluster'
+    'Colombo–Negombo,58,0.62,320,82,16.291667,Gliricidia,12,4.0,Urban coastal hotel cluster',
+    'South/South-West Coast,50,0.59147046,308,92,16.291667,Gliricidia,12,4.0,South/South-West resort cluster'
   ].join('\n'));
 });
 
@@ -188,10 +188,10 @@ router.post('/clusters/upload', upload.single('file'), async (req, res, next) =>
         toNumber(pick(row, ['electricity_intensity_kwh_room_day', 'electricity_intensity', 'kwh_room_day'], 50), 50),
         toNumber(pick(row, ['cooling_share'], 0.59147046), 0.59147046),
         toNumber(pick(row, ['dhw_l_orn', 'dhw_lorn', 'dhw'], 308), 308),
-        toNumber(pick(row, ['occupancy_percent', 'occupancy'], 83), 83),
-        toNumber(pick(row, ['grid_import_tariff_lkr_kwh', 'grid_tariff', 'electricity_tariff'], 62), 62),
+        toNumber(pick(row, ['occupancy_percent', 'occupancy'], 92), 92),
+        toNumber(pick(row, ['grid_import_tariff_lkr_kwh', 'grid_tariff', 'electricity_tariff'], 16.291667), 16.291667),
         pick(row, ['selected_biomass_fuel', 'biomass_fuel'], 'Gliricidia'),
-        toNumber(pick(row, ['selected_biomass_delivered_cost_lkr_kg', 'biomass_price', 'biomass_cost'], 35), 35),
+        toNumber(pick(row, ['selected_biomass_delivered_cost_lkr_kg', 'biomass_price', 'biomass_cost'], 12), 12),
         toNumber(pick(row, ['selected_biomass_lhv_kwh_kg', 'biomass_lhv'], 4.0), 4.0),
         monthlyFactorsJson(row),
         pick(row, ['notes', 'remarks'], '')
