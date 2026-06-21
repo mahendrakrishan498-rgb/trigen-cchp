@@ -157,7 +157,7 @@ function parseMonthlyProfile(arrayRows, objectRows) {
 }
 
 function preferredWorkbookSheet(workbook) {
-  const preferredNames = ['Inputs', 'Step03 Inputs', 'Monthly Results'];
+  const preferredNames = ['Monthly Results', 'Inputs', 'Step03 Inputs'];
   const preferred = preferredNames.find((name) => workbook.Sheets[name]);
   if (preferred) return preferred;
 
@@ -189,17 +189,39 @@ function buildMonthlyRow(row, index) {
     ),
 
     hotel_electricity_kwh: toNumber(
-      pick(row, ['Electricity kWh', 'Electricity', 'hotel_electricity_kwh', 'electricity_kwh'], 0),
+      pick(row, [
+        'Total Electricity (kWh/mo)',
+        'Total Electricity',
+        'Electricity kWh',
+        'Electricity',
+        'Grid Electricity (kWh)',
+        'hotel_electricity_kwh',
+        'electricity_kwh'
+      ], 0),
       0
     ),
 
     cooling_thermal_kwh: toNumber(
-      pick(row, ['Cooling kWh', 'Cooling thermal kWh', 'cooling_thermal_kwh', 'cooling_kwh'], 0),
+      pick(row, [
+        'Cooling Thermal (kWh_cool/mo)',
+        'Cooling Thermal',
+        'Cooling kWh',
+        'Cooling thermal kWh',
+        'cooling_thermal_kwh',
+        'cooling_kwh'
+      ], 0),
       0
     ),
 
     heating_thermal_kwh: toNumber(
-      pick(row, ['Heating kWh', 'Heating thermal kWh', 'heating_thermal_kwh', 'heating_kwh'], 0),
+      pick(row, [
+        'Total Heating (kWh_th/mo)',
+        'Total Heating',
+        'Heating kWh',
+        'Heating thermal kWh',
+        'heating_thermal_kwh',
+        'heating_kwh'
+      ], 0),
       0
     )
   };
@@ -219,6 +241,7 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
 
     const sheetName = preferredWorkbookSheet(workbook);
     const { rows, arrayRows } = sheetRows(workbook, sheetName);
+    const inputRows = sheetRows(workbook, 'Inputs');
     const step03Rows = sheetRows(workbook, 'Step03 Inputs');
 
     if (!rows.length && !arrayRows.length) {
@@ -229,6 +252,7 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
 
     const inputsUpdate = {
       ...parseInputsUpdate(arrayRows),
+      ...parseInputsUpdate(inputRows.arrayRows),
       ...parseInputsUpdate(step03Rows.arrayRows)
     };
     const monthlyProfile = parseMonthlyProfile(arrayRows, rows);

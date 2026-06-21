@@ -15,7 +15,7 @@ function withWorkbookSouthWestDefaults(row) {
     electricity_intensity_kwh_room_day: 50,
     cooling_share: 0.591470460,
     dhw_l_orn: 308,
-    occupancy_percent: 92,
+    occupancy_percent: 71,
     grid_import_tariff_lkr_kwh: 16.291667,
     selected_biomass_fuel: 'Gliricidia',
     selected_biomass_delivered_cost_lkr_kg: 12,

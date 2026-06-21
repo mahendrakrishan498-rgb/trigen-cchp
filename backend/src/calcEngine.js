@@ -2,10 +2,15 @@ const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov
 const DAYS = [31,28,31,30,31,30,31,31,30,31,30,31];
 const CHILLER_CANDIDATES_RT = [100,150,200,250,300,350,400,500,600,700,800,1000,1200,1500,2000,2500,3000];
 const TURBINE_CANDIDATES_KW = [50,75,100,150,200,250,300,350,400,500,600,700,800,1000,1250,1500,2000];
-const EXPORT_TARIFFS = Array.from({ length: 32 }, (_, index) => ({
+const EXPORT_TARIFF_VALUES = [
+  46.02, 46.21, 46.41, 46.61, 46.82, 47.02, 47.22, 47.43, 47.64, 47.85,
+  48.06, 48.27, 48.48, 48.69, 48.91, 49.12, 49.34, 49.56, 49.78, 50.00,
+  50.23
+];
+const EXPORT_TARIFFS = EXPORT_TARIFF_VALUES.map((fuel, index) => ({
   year: 2026 + index,
   om: 0,
-  fuel: 46.21,
+  fuel,
   fixed: 0
 }));
 
@@ -133,6 +138,7 @@ function calculate(input = {}, settings = {}, equipmentRows = [], exportTariffs 
   const selectedBiomassLhv = /cinnamon/i.test(biomassFuelType) ? cinnamonLhv : settingsValue(input, settings, 'selected_biomass_lhv_kwh_kg', gliricidiaLhv);
   const biomassFuelCostKwh = selectedBiomassCostKg / Math.max(selectedBiomassLhv, 0.01);
   const chillerCapexRate = settingsValue(input, settings, 'absorption_chiller_specific_capex_lkr_rt', 220000);
+  const useChillerCapexBands = /yes|true|1/i.test(String(input.use_absorption_chiller_capex_bands || settings.use_absorption_chiller_capex_bands || 'No'));
   const turbineCapexRate = settingsValue(input, settings, 'extraction_turbine_specific_capex_lkr_kw', 300000);
   const steamGeneratorCapexRate = settingsValue(input, settings, 'steam_generator_specific_capex_lkr_kg_h', 18000);
   const integrationCapexRate = settingsValue(input, settings, 'cooling_integration_specific_capex_lkr_rt', 40000);
@@ -223,6 +229,33 @@ function calculate(input = {}, settings = {}, equipmentRows = [], exportTariffs 
   const selectedHeatExchangerKw = workbookSizing ? workbookSizing.heat_exchanger_kw : coincidentHeatingKw;
 
   const annualTurbineElectricity = actualTurbineKw * 8760;
+  const mf = monthlyFactors(occupancyPercent, input.monthly_factors);
+  const monthlyTotalFactorDays = mf.reduce((s,m)=>s+m.factor*m.days,0);
+  const inputMonthlyProfile = Array.isArray(input.monthly_profile) ? input.monthly_profile : [];
+  const monthlyValue = (index, keys) => {
+    const row = inputMonthlyProfile[index] || {};
+    for (const key of keys) {
+      if (!Object.prototype.hasOwnProperty.call(row, key) || row[key] === '') continue;
+      const value = Number(row[key]);
+      if (Number.isFinite(value) && value >= 0) return value;
+    }
+    return null;
+  };
+  const monthlyDispatchBasis = mf.map((m, idx) => {
+    const weight = m.factor * m.days / monthlyTotalFactorDays;
+    const hotelElectricity = monthlyValue(idx, ['hotel_electricity_kwh', 'electricity_kwh', 'total_electricity_kwh'])
+      ?? annualElectricity * weight;
+    const coolingThermal = monthlyValue(idx, ['cooling_thermal_kwh', 'cooling_kwh'])
+      ?? annualCoolingThermal * weight;
+    const heatingThermal = monthlyValue(idx, ['heating_thermal_kwh', 'dhw_kwh'])
+      ?? annualHeatingDemand * weight;
+    const coolingElectric = coolingThermal / Math.max(electricChillerCop, 0.01);
+    const proposedHotelElectricity = Math.max(0, hotelElectricity - coolingElectric);
+    const turbineElectricity = selectedTurbineKw * 24 * m.days;
+    const gridImport = Math.max(0, proposedHotelElectricity - turbineElectricity);
+    const gridExport = Math.max(0, turbineElectricity - proposedHotelElectricity);
+    return { m, weight, hotelElectricity, coolingThermal, heatingThermal, coolingElectric, proposedHotelElectricity, turbineElectricity, gridImport, gridExport };
+  });
   const gridBalance = profile.reduce((acc, p) => {
     const hotelElectric = avgElectricKw * p.electric_factor;
     const coolingThermal = avgCoolingThermalKw * p.cooling_factor;
@@ -236,9 +269,13 @@ function calculate(input = {}, settings = {}, equipmentRows = [], exportTariffs 
   const profileAnnualGridExport = gridBalance.exportKw / profile.length * 8760;
   const workbookAnnualGridImport = Math.max(0, annualElectricity - annualTurbineElectricity);
   const workbookAnnualGridExport = Math.max(0, annualTurbineElectricity - annualElectricity);
-  const useProfileGridExchange = !/annual/i.test(String(input.grid_exchange_method || settings.grid_exchange_method || 'profile'));
-  const defaultAnnualGridImport = useProfileGridExchange ? profileAnnualGridImport : workbookAnnualGridImport;
-  const defaultAnnualGridExport = useProfileGridExchange ? profileAnnualGridExport : workbookAnnualGridExport;
+  const monthlyAnnualGridImport = monthlyDispatchBasis.reduce((sum, row) => sum + row.gridImport, 0);
+  const monthlyAnnualGridExport = monthlyDispatchBasis.reduce((sum, row) => sum + row.gridExport, 0);
+  const gridExchangeMethod = String(input.grid_exchange_method || settings.grid_exchange_method || 'profile');
+  const useMonthlyGridExchange = /monthly/i.test(gridExchangeMethod);
+  const useProfileGridExchange = !useMonthlyGridExchange && !/annual/i.test(gridExchangeMethod);
+  const defaultAnnualGridImport = useMonthlyGridExchange ? monthlyAnnualGridImport : (useProfileGridExchange ? profileAnnualGridImport : workbookAnnualGridImport);
+  const defaultAnnualGridExport = useMonthlyGridExchange ? monthlyAnnualGridExport : (useProfileGridExchange ? profileAnnualGridExport : workbookAnnualGridExport);
   const annualGridImport = settingsValue(input, settings, 'annual_grid_import_kwh', defaultAnnualGridImport);
   const annualGridExport = settingsValue(input, settings, 'annual_grid_export_kwh', defaultAnnualGridExport);
   const annualProcessSteamUsedKg = annualHeatingDemand / (steamDh / 3600) + annualCoolingThermal / absorptionCop / (steamDh / 3600);
@@ -246,7 +283,10 @@ function calculate(input = {}, settings = {}, equipmentRows = [], exportTariffs 
   const annualExhaustSteamKg = Math.max(0, annualTurbineInletSteamKg - annualProcessSteamUsedKg);
   const exhaustRatio = annualTurbineInletSteamKg > 0 ? annualExhaustSteamKg / annualTurbineInletSteamKg : 0;
 
-  const dualChillerCapex = totalChillerRt * chillerCapexRate;
+  const effectiveChillerCapexRate = useChillerCapexBands
+    ? (totalChillerRt <= 300 ? 200000 : (totalChillerRt <= 800 ? 170000 : 140000))
+    : chillerCapexRate;
+  const dualChillerCapex = totalChillerRt * effectiveChillerCapexRate;
   const turbineCapex = selectedTurbineKw * turbineCapexRate;
   const steamGeneratorCapex = selectedTurbineSteamFlowKgH * steamGeneratorCapexRate;
   const integrationCapex = totalChillerRt * integrationCapexRate;
@@ -343,22 +383,14 @@ function calculate(input = {}, settings = {}, equipmentRows = [], exportTariffs 
   const proposedNetEmissions = proposedGridImportEmissions - proposedExportDisplacementCredit + proposedBiomassFuelEmissions;
   const annualGhgReduction = baselineTotalEmissions - proposedNetEmissions;
 
-  const mf = monthlyFactors(occupancyPercent, input.monthly_factors);
-  const monthlyTotalFactorDays = mf.reduce((s,m)=>s+m.factor*m.days,0);
-  const monthly = mf.map((m, idx) => {
-    const weight = m.factor * m.days / monthlyTotalFactorDays;
-    const hotelElectricity = annualElectricity * weight;
-    const coolingThermal = annualCoolingThermal * weight;
-    const heatingThermal = annualHeatingDemand * weight;
+  const monthly = monthlyDispatchBasis.map((basis) => {
+    const { m, hotelElectricity, coolingThermal, heatingThermal, proposedHotelElectricity, turbineElectricity, gridImport, gridExport } = basis;
     const chillerSteamThermal = coolingThermal / absorptionCop;
     const totalProcessSteam = chillerSteamThermal + heatingThermal;
     const processSteamKg = totalProcessSteam / (steamDh / 3600);
     const turbineInletSteamKg = selectedTurbineSteamFlowKgH * 24 * m.days;
     const exhaustSteamKg = Math.max(0, turbineInletSteamKg - processSteamKg);
-    const turbineElectricity = selectedTurbineKw * 24 * m.days;
-    const gridImport = Math.max(0, hotelElectricity - turbineElectricity);
-    const gridExport = Math.max(0, turbineElectricity - hotelElectricity);
-    return { month: m.month, days: m.days, occupancy_percent: m.occupancy_percent, hotel_electricity_kwh: round(hotelElectricity), cooling_thermal_kwh: round(coolingThermal), heating_thermal_kwh: round(heatingThermal), chiller_steam_thermal_kwh: round(chillerSteamThermal), total_process_steam_kwh: round(totalProcessSteam), process_steam_kg: round(processSteamKg), turbine_inlet_steam_kg: round(turbineInletSteamKg), exhaust_steam_kg: round(exhaustSteamKg), turbine_electricity_kwh: round(turbineElectricity), grid_import_kwh: round(gridImport), grid_export_kwh: round(gridExport), import_cost_lkr: round(gridImport * gridImportTariff), export_revenue_lkr: round(gridExport * exportTariffYear1) };
+    return { month: m.month, days: m.days, occupancy_percent: m.occupancy_percent, hotel_electricity_kwh: round(hotelElectricity), proposed_hotel_electricity_kwh: round(proposedHotelElectricity), cooling_thermal_kwh: round(coolingThermal), heating_thermal_kwh: round(heatingThermal), chiller_steam_thermal_kwh: round(chillerSteamThermal), total_process_steam_kwh: round(totalProcessSteam), process_steam_kg: round(processSteamKg), turbine_inlet_steam_kg: round(turbineInletSteamKg), exhaust_steam_kg: round(exhaustSteamKg), turbine_electricity_kwh: round(turbineElectricity), grid_import_kwh: round(gridImport), grid_export_kwh: round(gridExport), import_cost_lkr: round(gridImport * gridImportTariff), export_revenue_lkr: round(gridExport * exportTariffYear1) };
   });
 
   const dispatch15min = profile.map((p) => {
@@ -411,8 +443,8 @@ function calculate(input = {}, settings = {}, equipmentRows = [], exportTariffs 
     system_sizing:{ room_case:rooms, boiler_tph:round(selectedTurbineSteamFlowKgH/1000,2), turbine_kw:selectedTurbineKw, absorption_chiller_rt:totalChillerRt, main_chiller_rt:selectedMainRt, backup_chiller_rt:selectedBackupRt, heat_exchanger_kw:round(selectedHeatExchangerKw,2), extraction_steam_flow_kg_h: workbookSizing ? workbookSizing.extraction_kg_h : round(processSteamFlowKgH,2), capex_lkr:round(netInitialInvestment) },
     monthly_dispatch:monthly,
     dispatch_15min:dispatch15min,
-    step03_capex:{ dual_absorption_chiller_capex_lkr:round(dualChillerCapex), extraction_turbine_capex_lkr:round(turbineCapex), steam_generator_auxiliaries_capex_lkr:round(steamGeneratorCapex), dual_chiller_cooling_integration_capex_lkr:round(integrationCapex), grid_interconnection_capex_lkr:round(gridInterconnectionCapex), fuel_handling_capex_lkr:round(fuelHandlingCapex), steam_condensate_piping_capex_lkr:round(steamPipingCapex), water_treatment_condensate_capex_lkr:round(waterTreatmentCapex), chw_cw_piping_capex_lkr:round(chwPipingCapex), stack_flue_gas_capex_lkr:round(stackFlueGasCapex), electrical_instrumentation_capex_lkr:round(electricalInstrumentationCapex), civil_structural_capex_lkr:round(civilStructuralCapex), direct_equipment_capex_before_tax_lkr:round(directEquipmentCapexBeforeTax), direct_capex_tax_factor:round(directCapexTaxFactor,3), direct_equipment_capex_lkr:round(directEquipmentCapex), installation_cost_lkr:round(installationCost), engineering_development_cost_lkr:round(engineeringCost), contingency_lkr:round(contingency), gross_capex_lkr:round(grossCapex), grant_subsidy_lkr:round(grantSubsidy), net_initial_investment_lkr:round(netInitialInvestment) },
-    energy_balance:{ annual_turbine_electricity_kwh:round(annualTurbineElectricity), annual_hotel_electricity_kwh:round(annualElectricity), annual_grid_import_kwh:round(annualGridImport), annual_grid_export_kwh:round(annualGridExport), profile_annual_grid_import_kwh:round(profileAnnualGridImport), profile_annual_grid_export_kwh:round(profileAnnualGridExport), annual_process_steam_used_kg:round(annualProcessSteamUsedKg), annual_turbine_inlet_steam_kg:round(annualTurbineInletSteamKg), annual_exhaust_steam_kg:round(annualExhaustSteamKg), exhaust_steam_ratio:round(exhaustRatio,4) },
+    step03_capex:{ absorption_chiller_specific_capex_lkr_rt:round(effectiveChillerCapexRate), dual_absorption_chiller_capex_lkr:round(dualChillerCapex), extraction_turbine_capex_lkr:round(turbineCapex), steam_generator_auxiliaries_capex_lkr:round(steamGeneratorCapex), dual_chiller_cooling_integration_capex_lkr:round(integrationCapex), grid_interconnection_capex_lkr:round(gridInterconnectionCapex), fuel_handling_capex_lkr:round(fuelHandlingCapex), steam_condensate_piping_capex_lkr:round(steamPipingCapex), water_treatment_condensate_capex_lkr:round(waterTreatmentCapex), chw_cw_piping_capex_lkr:round(chwPipingCapex), stack_flue_gas_capex_lkr:round(stackFlueGasCapex), electrical_instrumentation_capex_lkr:round(electricalInstrumentationCapex), civil_structural_capex_lkr:round(civilStructuralCapex), direct_equipment_capex_before_tax_lkr:round(directEquipmentCapexBeforeTax), direct_capex_tax_factor:round(directCapexTaxFactor,3), direct_equipment_capex_lkr:round(directEquipmentCapex), installation_cost_lkr:round(installationCost), engineering_development_cost_lkr:round(engineeringCost), contingency_lkr:round(contingency), gross_capex_lkr:round(grossCapex), grant_subsidy_lkr:round(grantSubsidy), net_initial_investment_lkr:round(netInitialInvestment) },
+    energy_balance:{ annual_turbine_electricity_kwh:round(annualTurbineElectricity), annual_hotel_electricity_kwh:round(annualElectricity), annual_grid_import_kwh:round(annualGridImport), annual_grid_export_kwh:round(annualGridExport), profile_annual_grid_import_kwh:round(profileAnnualGridImport), profile_annual_grid_export_kwh:round(profileAnnualGridExport), monthly_annual_grid_import_kwh:round(monthlyAnnualGridImport), monthly_annual_grid_export_kwh:round(monthlyAnnualGridExport), annual_process_steam_used_kg:round(annualProcessSteamUsedKg), annual_turbine_inlet_steam_kg:round(annualTurbineInletSteamKg), annual_exhaust_steam_kg:round(annualExhaustSteamKg), exhaust_steam_ratio:round(exhaustRatio,4) },
     fuel:{ selected_biomass_fuel:biomassFuelType, biomass_lhv_kwh_kg:round(selectedBiomassLhv,2), biomass_cost_lkr_kg:round(selectedBiomassCostKg,2), proposed_biomass_fuel_input_kwh_y:round(proposedBiomassFuelInputKwh), annual_biomass_kg:round(proposedBiomassFuelInputKwh/selectedBiomassLhv), annual_biomass_tonnes:round(proposedBiomassFuelInputKwh/selectedBiomassLhv/1000,2), monthly_average_biomass_tonnes:round(monthlyAverageBiomassTonnes,2) },
     financial:{ avoided_hotel_electricity_cost_lkr_y:round(avoidedElectricityCost), avoided_hotel_heating_fuel_input_kwh_y:round(avoidedHeatingFuelInput), avoided_hotel_heating_cost_lkr_y:round(avoidedHeatingCost), total_avoided_hotel_energy_cost_lkr_y:round(totalAvoidedEnergyCost), sustainable_market_premium_year1_lkr_y:round(sustainablePremiumYear1), proposed_annual_biomass_fuel_cost_lkr_y:round(proposedBiomassFuelCost), proposed_annual_grid_import_cost_lkr_y:round(proposedGridImportCost), grid_export_revenue_year1_lkr_y:round(exportRevenueYear1), proposed_fixed_om_lkr_y:round(fixedOm), proposed_variable_om_lkr_y:round(variableOm), proposed_insurance_admin_lkr_y:round(insuranceAdmin), proposed_annual_project_operating_cost_before_export_lkr_y:round(operatingCostBeforeExport), proposed_annual_project_net_operating_cost_lkr_y:round(projectNetOperatingCost), annual_net_benefit_lkr:round(year1NetSavings), year1_net_project_savings_lkr_y:round(year1NetSavings), simple_payback_years:simplePayback?round(simplePayback,2):null, discounted_payback_years:discountedPayback===null?null:round(discountedPayback,2), npv_lkr:round(npv), irr_percent:irrValue===null?null:round(irrValue*100,2), profitability_index:profitabilityIndex===null?null:round(profitabilityIndex,3), annual_life_cycle_savings_lkr_y:round(annualLifeCycleSavings) },
     feasibility:{ ...feasibilityChecks, final_decision:finalDecision, npv_benchmark:'NPV > 0', irr_benchmark:'IRR > 0', simple_payback_benchmark:'<= analysis period', discounted_payback_benchmark:'<= analysis period', biomass_benchmark:'<= 1500 t/mo', biomass_supply_note:'Biomass use >1500 t/mo is treated as NOT FEASIBLE for this study unless supply is contractually proven.' },

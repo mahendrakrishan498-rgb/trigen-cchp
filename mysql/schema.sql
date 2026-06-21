@@ -103,7 +103,7 @@ CREATE TABLE IF NOT EXISTS retscreen_comparisons (
 );
 
 INSERT INTO assumption_settings (setting_key, setting_value, unit, description) VALUES
-('default_occupancy_percent','92','%','South Coast cluster default occupancy from Excel workbook'),
+('default_occupancy_percent','71','%','South Coast cluster default occupancy from Excel workbook'),
 ('electricity_intensity_kwh_room_day','50','kWh/available-room/day','Benchmark electricity intensity'),
 ('cooling_share','0.591470459820233','fraction','Cooling share of electricity'),
 ('dhw_l_orn','308','L/occupied-room-night','DHW volume'),
@@ -135,13 +135,22 @@ INSERT INTO assumption_settings (setting_key, setting_value, unit, description) 
 ('gliricidia_delivered_cost_lkr_kg','12','Rs/kg','Gliricidia delivered cost'),
 ('cinnamon_lhv_kwh_kg','4.2','kWh/kg','Cinnamon LHV'),
 ('gliricidia_lhv_kwh_kg','4','kWh/kg','Gliricidia LHV'),
-('absorption_chiller_specific_capex_lkr_rt','220000','Rs/RT','Step03 chiller specific CAPEX'),
-('extraction_turbine_specific_capex_lkr_kw','300000','Rs/kW','Step03 extraction turbine specific CAPEX'),
-('steam_generator_specific_capex_lkr_kg_h','18000','Rs/(kg/h)','Step03 steam generator and auxiliaries specific CAPEX'),
-('cooling_integration_specific_capex_lkr_rt','40000','Rs/RT','Cooling tower/HX/integration specific CAPEX'),
-('grid_interconnection_specific_capex_lkr_kw','20000','Rs/kW','Grid interconnection specific CAPEX'),
-('installation_factor','0.18','fraction','Installation factor applied to direct equipment CAPEX'),
-('engineering_development_factor','0.08','fraction','Engineering and development factor'),
+('use_absorption_chiller_capex_bands','Yes','Yes/No','Use workbook size-banded absorption chiller CAPEX rates'),
+('absorption_chiller_specific_capex_lkr_rt','170000','Rs/RT','Step03 chiller specific CAPEX'),
+('extraction_turbine_specific_capex_lkr_kw','60000','Rs/kW','Step03 extraction turbine specific CAPEX'),
+('steam_generator_specific_capex_lkr_kg_h','1000','Rs/(kg/h)','Step03 steam generator and auxiliaries specific CAPEX'),
+('cooling_integration_specific_capex_lkr_rt','15000','Rs/RT','Turbine condensing heat-rejection / cooling integration CAPEX'),
+('grid_interconnection_specific_capex_lkr_kw','27000','Rs/kW','Grid interconnection specific CAPEX'),
+('fuel_handling_specific_capex_lkr_kw','5664','Rs/kW','Biomass fuel handling CAPEX allowance'),
+('steam_condensate_piping_factor','0.06','fraction','Steam and condensate piping factor on main equipment CAPEX'),
+('water_treatment_condensate_factor','0.04','fraction','Water treatment and condensate system factor on main equipment CAPEX'),
+('chw_cw_piping_factor','0.04','fraction','CHW/CW piping factor on main equipment CAPEX'),
+('stack_flue_gas_specific_capex_lkr_kw','1500','Rs/kW','Stack and flue gas CAPEX allowance'),
+('electrical_instrumentation_factor','0.08','fraction','Electrical and instrumentation factor on main equipment CAPEX'),
+('civil_structural_factor','0.02','fraction','Civil and structural factor on main equipment CAPEX'),
+('direct_capex_tax_factor','1.35','factor','Direct equipment CAPEX tax multiplier'),
+('installation_factor','0.15','fraction','Installation factor applied to direct equipment CAPEX'),
+('engineering_development_factor','0.09','fraction','Engineering and development factor'),
 ('contingency_factor','0.10','fraction','Contingency factor'),
 ('grant_subsidy_lkr','0','Rs','Grant or subsidy'),
 ('fixed_om_rate_capex','0.03','fraction CAPEX/y','Fixed O&M rate'),
@@ -155,7 +164,7 @@ INSERT INTO assumption_settings (setting_key, setting_value, unit, description) 
 ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value), unit=VALUES(unit), description=VALUES(description);
 
 INSERT INTO export_tariffs (year, om_tariff_lkr_kwh, fuel_tariff_lkr_kwh, fixed_tariff_lkr_kwh) VALUES
-(2026,0,46.21,0),(2027,0,46.21,0),(2028,0,46.21,0),(2029,0,46.21,0),(2030,0,46.21,0),(2031,0,46.21,0),(2032,0,46.21,0),(2033,0,46.21,0),(2034,0,46.21,0),(2035,0,46.21,0),(2036,0,46.21,0),(2037,0,46.21,0),(2038,0,46.21,0),(2039,0,46.21,0),(2040,0,46.21,0),(2041,0,46.21,0),(2042,0,46.21,0),(2043,0,46.21,0),(2044,0,46.21,0),(2045,0,46.21,0),(2046,0,46.21,0),(2047,0,46.21,0),(2048,0,46.21,0),(2049,0,46.21,0),(2050,0,46.21,0),(2051,0,46.21,0),(2052,0,46.21,0),(2053,0,46.21,0),(2054,0,46.21,0),(2055,0,46.21,0),(2056,0,46.21,0),(2057,0,46.21,0)
+(2026,0,46.02,0),(2027,0,46.21,0),(2028,0,46.41,0),(2029,0,46.61,0),(2030,0,46.82,0),(2031,0,47.02,0),(2032,0,47.22,0),(2033,0,47.43,0),(2034,0,47.64,0),(2035,0,47.85,0),(2036,0,48.06,0),(2037,0,48.27,0),(2038,0,48.48,0),(2039,0,48.69,0),(2040,0,48.91,0),(2041,0,49.12,0),(2042,0,49.34,0),(2043,0,49.56,0),(2044,0,49.78,0),(2045,0,50.00,0),(2046,0,50.23,0)
 ON DUPLICATE KEY UPDATE om_tariff_lkr_kwh=VALUES(om_tariff_lkr_kwh), fuel_tariff_lkr_kwh=VALUES(fuel_tariff_lkr_kwh), fixed_tariff_lkr_kwh=VALUES(fixed_tariff_lkr_kwh);
 
 INSERT INTO equipment_quotations (item_name, config_type, room_capacity, capacity_value, capacity_unit, cost_lkr, supplier, reference_note) VALUES
@@ -209,7 +218,7 @@ INSERT INTO cluster_defaults
 (cluster_name, electricity_intensity_kwh_room_day, cooling_share, dhw_l_orn, occupancy_percent, grid_import_tariff_lkr_kwh, selected_biomass_fuel, selected_biomass_delivered_cost_lkr_kg, selected_biomass_lhv_kwh_kg, notes)
 VALUES
 ('Colombo–Negombo', 58, 0.620000000, 320, 82, 16.291667, 'Gliricidia', 36, 4.0, 'Urban/coastal cluster with high air-conditioning demand.'),
-('South/South-West Coast', 50, 0.591470460, 308, 92, 16.291667, 'Gliricidia', 12, 4.0, 'South/South-West resort cluster based on project workbook assumptions.'),
+('South/South-West Coast', 50, 0.591470460, 308, 71, 16.291667, 'Gliricidia', 12, 4.0, 'South/South-West resort cluster based on project workbook assumptions.'),
 ('Cultural Triangle', 46, 0.540000000, 295, 76, 60, 'Mixed biomass', 34, 4.1, 'Heritage/tourism hotel cluster with moderate cooling demand.'),
 ('Hill Country', 42, 0.450000000, 330, 72, 58, 'Wood chips', 37, 4.2, 'Hill country cluster with lower cooling and higher hot-water demand.'),
 ('East Coast/Wildlife', 48, 0.570000000, 300, 74, 61, 'Agricultural residue', 38, 4.0, 'Seasonal coastal/wildlife hotel cluster.'),
