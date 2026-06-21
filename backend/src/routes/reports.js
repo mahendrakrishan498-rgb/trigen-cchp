@@ -262,7 +262,7 @@ function cover(doc, project, inputs) {
     .font('Helvetica-Bold')
     .fontSize(12)
     .fillColor('#0b2f2a')
-    .text(hotel, 251.66, 235.91, {
+    .text(hotel, 220, 235.91, {
       width: 170,
       align: 'center'
     });
@@ -1988,15 +1988,21 @@ doc.y = y0 + 170;
     const annualHeatingConclusion =
       Number(load.annual_heating_demand_kwh_th || 0);
     
-    // Feasibility statement
+    const conclusionFailedChecks = feasibilityRows
+      .filter((row) => row.value === 'FAIL')
+      .map((row) => row.item.replace(' status', '').toLowerCase());
+    const conclusionPassedChecks = feasibilityRows
+      .filter((row) => row.value === 'PASS')
+      .map((row) => row.item.replace(' status', '').toLowerCase());
+
     let feasibilityText = 'The project should be reviewed through detailed engineering and commercial optimisation before implementation.';
-    
-    if (conclusionNpv > 0 && conclusionIrr > 0 && conclusionPayback > 0 && conclusionPayback <= 10) {
-      feasibilityText = 'The project shows promising financial feasibility and is suitable for further implementation-level study.';
-    } else if (conclusionNpv > 0 && conclusionPayback > 10) {
-      feasibilityText = 'The project shows positive long-term economic potential, although the payback period should be reviewed carefully during detailed feasibility assessment.';
+
+    if (finalFeasibilityDecision === 'FEASIBLE') {
+      feasibilityText = 'The project satisfies the feasibility screening criteria and is suitable for further implementation-level study.';
     } else if (conclusionNpv <= 0) {
-      feasibilityText = 'Further optimisation of capital cost, biomass supply cost, export tariff conditions, and equipment selection is required before practical implementation.';
+      feasibilityText = 'Although the project generates positive annual savings, the negative NPV indicates that the project does not fully recover its investment on a discounted cash-flow basis under the current assumptions.';
+    } else if (conclusionPayback > 10) {
+      feasibilityText = 'The project shows positive long-term economic potential, although the payback period should be reviewed carefully during detailed feasibility assessment.';
     }
     
     // Conclusion paragraphs
@@ -2005,11 +2011,13 @@ doc.y = y0 + 170;
     
       `The estimated annual electricity demand is ${n(annualElectricityConclusion, 0)} kWh/year, while the annual cooling thermal demand is ${n(annualCoolingConclusion, 0)} kWh/year and the annual heating demand is ${n(annualHeatingConclusion, 0)} kWhth/year. According to the technical design output, the selected turbine capacity is approximately ${n(conclusionTurbine, 0)} kW and the dual absorption chiller capacity is approximately ${n(conclusionDualChiller, 0)} RT.`,
     
-      `From the financial analysis, the calculated Net Present Value is ${moneyShort(conclusionNpv)}, the Internal Rate of Return is ${n(conclusionIrr, 2)}%, and the simple payback period is approximately ${n(conclusionPayback, 2)} years. These indicators define the financial attractiveness of the proposed system under the current assumptions and tariff structure.`,
+      `From the financial analysis, the calculated Net Present Value is ${moneyShort(conclusionNpv)}, the Internal Rate of Return is ${n(conclusionIrr, 2)}%, and the simple payback period is approximately ${n(conclusionPayback, 2)} years. ${feasibilityText}`,
+
+      `From the feasibility assessment, the final screening decision is ${finalFeasibilityDecision}. ${conclusionPassedChecks.length ? `The project passes the ${conclusionPassedChecks.join(', ')} check${conclusionPassedChecks.length > 1 ? 's' : ''}. ` : ''}${conclusionFailedChecks.length ? `However, it fails the ${conclusionFailedChecks.join(', ')} check${conclusionFailedChecks.length > 1 ? 's' : ''}. Therefore, the project is not fully feasible under the current tariff, CAPEX, fuel cost, and operating-cost assumptions.` : 'All feasibility checks pass under the current assumptions.'}`,
     
       `From the environmental assessment, the system provides an estimated CO2 reduction of approximately ${n(conclusionCo2Reduction, 0)} tCO2/year. This reduction is achieved by replacing part of the conventional grid electricity and fossil-fuel-based heating demand with biomass-based combined cooling, heating and power generation.`,
     
-      `Overall, the proposed biomass-based CCHP system demonstrates environmental potential and provides a structured pathway for reducing grid electricity dependence and conventional thermal energy use. ${feasibilityText} The tool supports preliminary decision-making; before actual implementation, supplier quotations, site-specific biomass availability, boiler and turbine selection, grid export approval, detailed PSCAD/MATLAB validation, and operational constraints should be verified.`
+      `Overall, the proposed biomass-based CCHP system demonstrates strong environmental potential and provides a structured pathway for reducing grid electricity dependence and conventional thermal energy use. ${finalFeasibilityDecision === 'FEASIBLE' ? 'The financial and feasibility results support proceeding to detailed implementation-level assessment.' : 'Based on the current financial and feasibility results, the project should be improved through CAPEX reduction, improved export tariff conditions, lower biomass fuel cost, grants or subsidies, or optimized system sizing before proceeding to implementation-level study.'} The tool supports preliminary decision-making; before actual implementation, supplier quotations, site-specific biomass availability, boiler and turbine selection, grid export approval, detailed PSCAD/MATLAB validation, and operational constraints should be verified.`
     ];
     
     conclusionParagraphs.forEach((p) => {

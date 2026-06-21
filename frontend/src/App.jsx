@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import Protected from './components/Protected';
 import Login from './pages/Login';
+import Contact from './pages/Contact';
 import Dashboard from './pages/Dashboard';
 import NewDesign from './pages/NewDesign';
 import BMSUpload from './pages/BMSUpload';
@@ -26,6 +27,8 @@ function P({ children, admin = false }) { return <Protected admin={admin}>{child
 export default function App() {
   return <Routes>
     <Route path="/login" element={<Login />} />
+    <Route path="/contact" element={<Contact />} />
+    <Route path="/contact-us" element={<P><Contact inApp /></P>} />
     <Route path="/" element={<Navigate to="/dashboard" replace />} />
     <Route path="/dashboard" element={<P><Dashboard /></P>} />
     <Route path="/design" element={<P><NewDesign /></P>} />

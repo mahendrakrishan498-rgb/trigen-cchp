@@ -29,7 +29,7 @@ const defaults = {
   selected_biomass_delivered_cost_lkr_kg: 12,
   selected_biomass_lhv_kwh_kg: 4,
   main_chiller_share: 0.8,
-  sustainable_market_scenario: 'Yes',
+  sustainable_market_scenario: 'No',
   sustainable_room_rate_lkr: 30000,
   sustainable_room_price_increase_fraction: 0.1
 };

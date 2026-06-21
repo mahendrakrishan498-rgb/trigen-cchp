@@ -84,7 +84,7 @@ function applyExcelMonthlyProfile(result, inputs) {
 const express = require('express');
 const pool = require('../db');
 const { authRequired } = require('../middleware/auth');
-const { calculate } = require('../calcEngine');
+const { calculate, EXPORT_TARIFFS } = require('../calcEngine');
 const { getSettingsMap, getEquipmentRows, getExportTariffs, getLatestBmsSummary } = require('../services/settingsService');
 const { getClusterDispatch15Min } = require('../services/clusterDispatch15MinService');
 const southWestDispatch15Min = require('../data/southWestDispatch15Min');
@@ -97,20 +97,7 @@ function isSouthWestLocation(location) {
 }
 
 function southWestWorkbookExportTariffs() {
-  const totals = [
-    45.82, 46.02, 46.21, 46.41, 46.61,
-    46.82, 47.02, 47.22, 47.43, 47.64,
-    47.85, 48.06, 48.27, 48.48, 48.69,
-    48.91, 49.12, 49.34, 49.56, 49.78,
-    50.00, 50.23
-  ];
-
-  return totals.map((total, index) => ({
-    year: 2026 + index,
-    om: 0,
-    fuel: Number(total),
-    fixed: 0
-  }));
+  return EXPORT_TARIFFS;
 }
 
 function withSouthWestWorkbookDefaults(inputs) {
@@ -124,43 +111,43 @@ function withSouthWestWorkbookDefaults(inputs) {
     dhw_l_orn: 308,
     laundry_operation: 'Yes',
     grid_import_tariff_lkr_kwh: 16.291666666666668,
-    grid_export_tariff_lkr_kwh: 46.019999999999996,
+    grid_export_tariff_lkr_kwh: 43.27,
     selected_biomass_fuel: 'Gliricidia',
     selected_biomass_delivered_cost_lkr_kg: 12,
     selected_biomass_lhv_kwh_kg: 4,
     electric_chiller_cop: 5,
     absorption_chiller_cop: 0.7,
-    existing_boiler_efficiency: 1,
+    existing_boiler_efficiency: 0.8,
     new_biomass_steam_generator_efficiency: 0.85,
-    steam_enthalpy_rise_kj_kg: 2300,
-    turbine_steam_operating_hours_y: 8000,
-    workbook_turbine_kw_per_room: 1250 / 350,
-    workbook_chiller_rt_per_room: 1000 / 350,
-    financial_year: 2027,
-    analysis_period_years: 20,
+    steam_enthalpy_rise_kj_kg: 2100,
+    turbine_steam_operating_hours_y: 8760,
+    workbook_turbine_kw_per_room: 0,
+    workbook_chiller_rt_per_room: 0,
+    financial_year: 2026,
+    analysis_period_years: 25,
     financial_metric_years: 20,
-    inflation_escalation_rate: 0.025,
-    absorption_chiller_specific_capex_lkr_rt: 140000,
-    extraction_turbine_specific_capex_lkr_kw: 60000,
-    steam_generator_specific_capex_lkr_kg_h: 1000,
-    cooling_integration_specific_capex_lkr_rt: 0,
-    grid_interconnection_specific_capex_lkr_kw: 27000,
-    fuel_handling_specific_capex_lkr_kw: 5664,
-    steam_condensate_piping_factor: 0.06,
-    water_treatment_condensate_factor: 0.04,
-    chw_cw_piping_factor: 0.04,
-    stack_flue_gas_specific_capex_lkr_kw: 1500,
-    electrical_instrumentation_factor: 0.08,
-    civil_structural_factor: 0.02,
-    direct_capex_tax_factor: 1.35,
-    installation_factor: 0.15,
-    engineering_development_factor: 0.09,
+    inflation_escalation_rate: 0.05,
+    absorption_chiller_specific_capex_lkr_rt: 220000,
+    extraction_turbine_specific_capex_lkr_kw: 300000,
+    steam_generator_specific_capex_lkr_kg_h: 18000,
+    cooling_integration_specific_capex_lkr_rt: 40000,
+    grid_interconnection_specific_capex_lkr_kw: 20000,
+    fuel_handling_specific_capex_lkr_kw: 0,
+    steam_condensate_piping_factor: 0,
+    water_treatment_condensate_factor: 0,
+    chw_cw_piping_factor: 0,
+    stack_flue_gas_specific_capex_lkr_kw: 0,
+    electrical_instrumentation_factor: 0,
+    civil_structural_factor: 0,
+    direct_capex_tax_factor: 1,
+    installation_factor: 0.18,
+    engineering_development_factor: 0.08,
     contingency_factor: 0.10,
     fixed_om_rate_capex: 0.03,
-    variable_turbine_om_lkr_kwh: 0.3,
+    variable_turbine_om_lkr_kwh: 1.5,
     insurance_admin_rate_capex: 0.005,
-    major_overhaul_year: 7,
-    major_overhaul_fraction_capex: 0.08,
+    major_overhaul_year: 10,
+    major_overhaul_fraction_capex: 0.1,
     salvage_value_fraction_capex: 0.1,
     export_tariff_schedule: southWestWorkbookExportTariffs()
   };

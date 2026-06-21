@@ -10,7 +10,7 @@ export default function Sensitivity() {
   const rows = result?.sensitivity || [];
 
   return <>
-    <PageHeader title="Step03 Sensitivity" subtitle="One-way checks around CAPEX, grid tariff, biomass cost and export tariff." />
+    <PageHeader title="Sensitivity" subtitle="One-way checks around CAPEX, grid tariff, biomass cost and export tariff." />
     {!result && <div className="notice">No project selected.</div>}
     {result && <>
       <section className="panel chart-panel">

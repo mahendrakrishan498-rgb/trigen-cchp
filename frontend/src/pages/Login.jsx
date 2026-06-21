@@ -86,6 +86,14 @@ export default function Login() {
         {isAdminLogin ? 'User Login' : 'Admin Login'}
       </button>
 
+      <button
+        type="button"
+        className="contact-us-toggle"
+        onClick={() => navigate('/contact')}
+      >
+        Contact us
+      </button>
+
       <div className="auth-shell">
         <section className="auth-photo-panel">
           <div className="auth-photo-copy">

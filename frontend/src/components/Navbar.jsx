@@ -15,7 +15,8 @@ const links = [
   ['/pscad', 'Design Analysis'],
   ['/feasibility', 'Feasibility'],
   ['/reports', 'Report'],
-  ['/projects', 'Saved Case Studies']
+  ['/projects', 'Saved Case Studies'],
+  ['/contact-us', 'Contact Us']
 ];
 
 export default function Navbar() {
@@ -25,7 +26,9 @@ export default function Navbar() {
 
   return <aside className="sidebar">
     <div className="brand">
-      <div className="logo">CCHP</div>
+      <div className="logo">
+        <img src="/app-icon.png" alt="CCHP" />
+      </div>
       <div><h2>Biomass Based Trigeneration Builder for Hotel Sector</h2></div>
     </div>
     <nav>

@@ -59,21 +59,46 @@ function normalizeLabel(value) {
 const inputFieldMap = {
   'project titile': 'title',
   'project title': 'title',
+  'cluster': 'location',
   'hotel name': 'hotel_name',
   'project start year': 'financial_year',
   'financial/project year': 'financial_year',
+  'financial year': 'financial_year',
   'number of rooms': 'rooms',
   'location / hotel cluster': 'location',
   'location': 'location',
   'laundry operation': 'laundry_operation',
+  'occupancy': 'occupancy_percent',
   'electricity intensity (kwh/room/day)': 'electricity_intensity_kwh_room_day',
+  'electricity intensity': 'electricity_intensity_kwh_room_day',
   'cooling share': 'cooling_share',
+  'cooling share of electricity': 'cooling_share',
   'dhw l/orn': 'dhw_l_orn',
+  'dhw volume': 'dhw_l_orn',
   'occupancy %': 'occupancy_percent',
+  'existing electric chiller cop': 'electric_chiller_cop',
+  'steam enthalpy rise Δh': 'steam_enthalpy_rise_kj_kg',
+  'analysis period': 'analysis_period_years',
+  'discount rate': 'discount_rate',
+  'inflation / escalation rate': 'inflation_escalation_rate',
   'grid import tariff (lkr/kwh)': 'grid_import_tariff_lkr_kwh',
+  'grid import tariff': 'grid_import_tariff_lkr_kwh',
+  'grid export tariff': 'grid_export_tariff_lkr_kwh',
+  'existing boiler efficiency': 'existing_boiler_efficiency',
+  'new biomass steam-generator efficiency': 'new_biomass_steam_generator_efficiency',
+  'fixed o&m rate': 'fixed_om_rate_capex',
+  'variable turbine o&m': 'variable_turbine_om_lkr_kwh',
+  'insurance & admin rate': 'insurance_admin_rate_capex',
+  'major overhaul year': 'major_overhaul_year',
+  'major overhaul fraction': 'major_overhaul_fraction_capex',
+  'salvage value fraction': 'salvage_value_fraction_capex',
+  'grid emission factor': 'grid_emission_kgco2_kwh',
+  'biomass emission factor': 'biomass_emission_kgco2_kwh_fuel',
   'selected biomass fuel': 'selected_biomass_fuel',
   'biomass price (lkr/kg)': 'selected_biomass_delivered_cost_lkr_kg',
-  'biomass lhv (kwh/kg)': 'selected_biomass_lhv_kwh_kg'
+  'biomass lhv (kwh/kg)': 'selected_biomass_lhv_kwh_kg',
+  'selected biomass delivered cost': 'selected_biomass_delivered_cost_lkr_kg',
+  'selected biomass lower heating value': 'selected_biomass_lhv_kwh_kg'
 };
 
 const textInputFields = new Set([
@@ -87,7 +112,7 @@ const textInputFields = new Set([
 function parseInputsUpdate(arrayRows) {
   const updates = {};
 
-  arrayRows.slice(0, 20).forEach((cells) => {
+  arrayRows.slice(0, 40).forEach((cells) => {
     const label = normalizeLabel(cells[0]);
     const field = inputFieldMap[label];
     if (!field) return;
@@ -129,6 +154,24 @@ function parseMonthlyProfile(arrayRows, objectRows) {
   }
 
   return objectRows.slice(0, 12).map((row, index) => buildMonthlyRow(row, index));
+}
+
+function preferredWorkbookSheet(workbook) {
+  const preferredNames = ['Inputs', 'Step03 Inputs', 'Monthly Results'];
+  const preferred = preferredNames.find((name) => workbook.Sheets[name]);
+  if (preferred) return preferred;
+
+  return workbook.SheetNames[0];
+}
+
+function sheetRows(workbook, sheetName) {
+  const sheet = workbook.Sheets[sheetName];
+  if (!sheet) return { rows: [], arrayRows: [] };
+
+  return {
+    rows: XLSX.utils.sheet_to_json(sheet, { defval: '' }),
+    arrayRows: XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' })
+  };
 }
 
 function buildMonthlyRow(row, index) {
@@ -174,16 +217,9 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
       type: 'buffer'
     });
 
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
-
-    const rows = XLSX.utils.sheet_to_json(sheet, {
-      defval: ''
-    });
-    const arrayRows = XLSX.utils.sheet_to_json(sheet, {
-      header: 1,
-      defval: ''
-    });
+    const sheetName = preferredWorkbookSheet(workbook);
+    const { rows, arrayRows } = sheetRows(workbook, sheetName);
+    const step03Rows = sheetRows(workbook, 'Step03 Inputs');
 
     if (!rows.length && !arrayRows.length) {
       return res.status(400).json({
@@ -191,7 +227,10 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
       });
     }
 
-    const inputsUpdate = parseInputsUpdate(arrayRows);
+    const inputsUpdate = {
+      ...parseInputsUpdate(arrayRows),
+      ...parseInputsUpdate(step03Rows.arrayRows)
+    };
     const monthlyProfile = parseMonthlyProfile(arrayRows, rows);
 
     const annualElectricityKwh = monthlyProfile.reduce(
