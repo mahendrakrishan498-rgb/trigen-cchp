@@ -6,8 +6,8 @@ import { useProject } from '../state/ProjectContext';
 import { moneyShort, percentValue } from '../utils/formatters';
 
 const defaults = {
-  title: 'South-West Hotel Step03 Feasibility',
-  hotel_name: 'Sample South-West Resort',
+  title: 'Sample Hotel Feasibility Study',
+  hotel_name: 'Sample Hotel',
   location: 'South/South-West Coast',
   rooms: 150,
   occupancy_percent: 92,
