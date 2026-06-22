@@ -3,12 +3,13 @@ const DAYS = [31,28,31,30,31,30,31,31,30,31,30,31];
 const CHILLER_CANDIDATES_RT = [100,150,200,250,300,350,400,500,600,700,800,1000,1200,1500,2000,2500,3000];
 const TURBINE_CANDIDATES_KW = [50,75,100,150,200,250,300,350,400,500,600,700,800,1000,1250,1500,2000];
 const EXPORT_TARIFF_VALUES = [
+  45.82,
   46.02, 46.21, 46.41, 46.61, 46.82, 47.02, 47.22, 47.43, 47.64, 47.85,
   48.06, 48.27, 48.48, 48.69, 48.91, 49.12, 49.34, 49.56, 49.78, 50.00,
-  50.23
+  50.23, 50.45, 50.68, 50.90, 51.13, 51.36, 51.59, 51.83
 ];
 const EXPORT_TARIFFS = EXPORT_TARIFF_VALUES.map((fuel, index) => ({
-  year: 2026 + index,
+  year: 2025 + index,
   om: 0,
   fuel,
   fixed: 0
@@ -103,6 +104,7 @@ function calculate(input = {}, settings = {}, equipmentRows = [], exportTariffs 
   const laundryAvailableL = settingsValue(input, settings, 'laundry_diesel_available_l_room_day', 0.716);
   const laundryOccupiedL = settingsValue(input, settings, 'laundry_diesel_occupied_l_orn', 2.182);
   const includeOccupiedLaundryHeat = /yes|true|1/i.test(String(input.include_occupied_laundry_heat || settings.include_occupied_laundry_heat || 'No'));
+  const laundryHeatSelectionMode = settingsString(input, settings, 'laundry_heat_selection_mode', 'sum');
   const dieselThermalKwhL = settingsValue(input, settings, 'diesel_energy_kwh_l', 10);
   const existingBoilerEff = settingsValue(input, settings, 'existing_boiler_efficiency', 0.8);
   const biomassBoilerEff = settingsValue(input, settings, 'new_biomass_steam_generator_efficiency', 0.85);
@@ -125,7 +127,7 @@ function calculate(input = {}, settings = {}, equipmentRows = [], exportTariffs 
   const escalation = settingsValue(input, settings, 'inflation_escalation_rate', 0.05);
   const projectYear = Math.round(settingsValue(input, settings, 'financial_year', 2026));
   const gridImportTariff = settingsValue(input, settings, 'grid_import_tariff_lkr_kwh', 16.2916666667);
-  const exportTariffYear1 = settingsValue(input, settings, 'grid_export_tariff_lkr_kwh', exportTariffForYear(projectYear, tariffSchedule));
+  const exportTariffYear1 = exportTariffForYear(projectYear, tariffSchedule);
   const sustainableMarketScenario = /yes|true|1/i.test(String(input.sustainable_market_scenario || input.consider_sustainable_tourism_premium_market_scenario || 'No'));
   const sustainableRoomRate = settingsValue(input, settings, 'sustainable_room_rate_lkr', 30000);
   const sustainableRoomPriceIncrease = settingsValue(input, settings, 'sustainable_room_price_increase_fraction', 0.1);
@@ -178,7 +180,11 @@ function calculate(input = {}, settings = {}, equipmentRows = [], exportTariffs 
   const dhwHeat = occupiedRoomNights * dhwHeatPerOccupiedRoomNight + baseHeat;
   const laundryDieselLitres = laundryOperation ? availableRoomNights * laundryAvailableL : 0;
   const laundryOccupiedDieselLitres = laundryOperation && includeOccupiedLaundryHeat ? occupiedRoomNights * laundryOccupiedL : 0;
-  const laundryHeat = (laundryDieselLitres + laundryOccupiedDieselLitres) * dieselThermalKwhL;
+  const availableLaundryHeat = laundryDieselLitres * dieselThermalKwhL;
+  const occupiedLaundryHeat = laundryOccupiedDieselLitres * dieselThermalKwhL;
+  const laundryHeat = /max|workbook/i.test(String(laundryHeatSelectionMode))
+    ? Math.max(availableLaundryHeat, occupiedLaundryHeat)
+    : availableLaundryHeat + occupiedLaundryHeat;
   const annualHeatingDemand = n(input.measured_annual_heating_kwh, 0) || dhwHeat + laundryHeat;
 
   const profile = make15MinProfile(input.dispatch_15min_profile || input.dispatch_15min_factors);
@@ -243,8 +249,13 @@ function calculate(input = {}, settings = {}, equipmentRows = [], exportTariffs 
   };
   const monthlyDispatchBasis = mf.map((m, idx) => {
     const weight = m.factor * m.days / monthlyTotalFactorDays;
+    const excelShiftMonthlyElectricity = /yes|true|1/i.test(String(input.excel_shift_monthly_electricity || settings.excel_shift_monthly_electricity || 'No'));
+    const electricityMonth = excelShiftMonthlyElectricity ? mf[idx + 1] : null;
+    const electricityWeight = electricityMonth
+      ? electricityMonth.factor * electricityMonth.days / monthlyTotalFactorDays
+      : (excelShiftMonthlyElectricity ? 0 : weight);
     const hotelElectricity = monthlyValue(idx, ['hotel_electricity_kwh', 'electricity_kwh', 'total_electricity_kwh'])
-      ?? annualElectricity * weight;
+      ?? annualElectricity * electricityWeight;
     const coolingThermal = monthlyValue(idx, ['cooling_thermal_kwh', 'cooling_kwh'])
       ?? annualCoolingThermal * weight;
     const heatingThermal = monthlyValue(idx, ['heating_thermal_kwh', 'dhw_kwh'])

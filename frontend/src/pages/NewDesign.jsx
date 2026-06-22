@@ -21,9 +21,9 @@ const defaults = {
   hot_water_loss_factor: 0.25,
   laundry_operation: 'No',
   financial_year: 2026,
-  analysis_period_years: 25,
+  analysis_period_years: 20,
   discount_rate: 0.12,
-  inflation_escalation_rate: 0.05,
+  inflation_escalation_rate: 0.025,
   grid_import_tariff_lkr_kwh: 16.291666666666668,
   selected_biomass_fuel: 'Gliricidia',
   selected_biomass_delivered_cost_lkr_kg: 12,
@@ -68,6 +68,10 @@ function hasMonthlyLoadData(rows) {
   );
 }
 
+function defaultLaundryForCluster(name) {
+  return /hill/i.test(name || '') ? 'Yes' : 'No';
+}
+
 export default function NewDesign() {
   
   const { setProjectId, setProject, projectId } = useProject();
@@ -109,6 +113,9 @@ const [showMonthlyProfile, setShowMonthlyProfile] = useState(false);
   
       occupancy_percent:
         Number(cluster.occupancy_percent || 0),
+
+      laundry_operation:
+        defaultLaundryForCluster(cluster.cluster_name),
   
       grid_import_tariff_lkr_kwh:
         Number(cluster.grid_import_tariff_lkr_kwh || 0),

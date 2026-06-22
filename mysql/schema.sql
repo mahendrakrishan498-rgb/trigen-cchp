@@ -164,7 +164,7 @@ INSERT INTO assumption_settings (setting_key, setting_value, unit, description) 
 ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value), unit=VALUES(unit), description=VALUES(description);
 
 INSERT INTO export_tariffs (year, om_tariff_lkr_kwh, fuel_tariff_lkr_kwh, fixed_tariff_lkr_kwh) VALUES
-(2026,0,46.02,0),(2027,0,46.21,0),(2028,0,46.41,0),(2029,0,46.61,0),(2030,0,46.82,0),(2031,0,47.02,0),(2032,0,47.22,0),(2033,0,47.43,0),(2034,0,47.64,0),(2035,0,47.85,0),(2036,0,48.06,0),(2037,0,48.27,0),(2038,0,48.48,0),(2039,0,48.69,0),(2040,0,48.91,0),(2041,0,49.12,0),(2042,0,49.34,0),(2043,0,49.56,0),(2044,0,49.78,0),(2045,0,50.00,0),(2046,0,50.23,0)
+(2025,0,45.82,0),(2026,0,46.02,0),(2027,0,46.21,0),(2028,0,46.41,0),(2029,0,46.61,0),(2030,0,46.82,0),(2031,0,47.02,0),(2032,0,47.22,0),(2033,0,47.43,0),(2034,0,47.64,0),(2035,0,47.85,0),(2036,0,48.06,0),(2037,0,48.27,0),(2038,0,48.48,0),(2039,0,48.69,0),(2040,0,48.91,0),(2041,0,49.12,0),(2042,0,49.34,0),(2043,0,49.56,0),(2044,0,49.78,0),(2045,0,50.00,0),(2046,0,50.23,0),(2047,0,50.45,0),(2048,0,50.68,0),(2049,0,50.90,0),(2050,0,51.13,0),(2051,0,51.36,0),(2052,0,51.59,0),(2053,0,51.83,0)
 ON DUPLICATE KEY UPDATE om_tariff_lkr_kwh=VALUES(om_tariff_lkr_kwh), fuel_tariff_lkr_kwh=VALUES(fuel_tariff_lkr_kwh), fixed_tariff_lkr_kwh=VALUES(fixed_tariff_lkr_kwh);
 
 INSERT INTO equipment_quotations (item_name, config_type, room_capacity, capacity_value, capacity_unit, cost_lkr, supplier, reference_note) VALUES
