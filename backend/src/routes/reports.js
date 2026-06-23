@@ -1262,7 +1262,7 @@ doc.y = y0 + 170;
     ].filter(Boolean).join(' ');
     reportParagraph(doc, projectSummaryText);
 
-    section(doc, '2. Input Assumptions');
+    section(doc, '2. Inputs');
 
     const inputsUsed = result.inputs_used || {};
     const assumptionValue = (key, fallback = '-') => {
