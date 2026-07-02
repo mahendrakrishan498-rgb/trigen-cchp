@@ -191,20 +191,28 @@ const [showMonthlyProfile, setShowMonthlyProfile] = useState(false);
   }
 
   async function preview() {
-    const payload = buildCalculationInputs();
-    const data = await apiRequest('/calculations/preview', { method: 'POST', body: payload });
-    setResult(data);
-    setMessage('Simulation completed using V3 Step03 Excel-linked equations.');
+    try {
+      const payload = buildCalculationInputs();
+      const data = await apiRequest('/calculations/preview', { method: 'POST', body: payload });
+      setResult(data);
+      setMessage('Simulation completed using V3 Step03 Excel-linked equations.');
+    } catch (err) {
+      setMessage(`Run simulation failed: ${err.message}`);
+    }
   }
 
   async function save() {
-    const payload = buildCalculationInputs();
-    const data = await apiRequest('/calculations/save', { method: 'POST', body: payload });
-    setProjectId(data.id);
-    setProject({ id:data.id, ...payload, result:data.result });
-    setInputs({ ...payload, project_id: data.id });
-    setResult(data.result);
-    setMessage(data.message);
+    try {
+      const payload = buildCalculationInputs();
+      const data = await apiRequest('/calculations/save', { method: 'POST', body: payload });
+      setProjectId(data.id);
+      setProject({ id:data.id, ...payload, result:data.result });
+      setInputs({ ...payload, project_id: data.id });
+      setResult(data.result);
+      setMessage(data.message);
+    } catch (err) {
+      setMessage(`Save project failed: ${err.message}`);
+    }
   }
 
   const fields = [

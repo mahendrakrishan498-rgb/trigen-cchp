@@ -3,6 +3,10 @@ const isLocalhost =
   ['localhost', '127.0.0.1'].includes(window.location.hostname);
 
 const configuredApiBase = import.meta.env.VITE_API_BASE || '';
+const devApiBase =
+  typeof window !== 'undefined'
+    ? `${window.location.protocol}//${window.location.hostname}:5000/api`
+    : 'http://localhost:5000/api';
 const isBadProductionApiBase =
   !configuredApiBase ||
   configuredApiBase === '/api' ||
@@ -10,8 +14,8 @@ const isBadProductionApiBase =
   configuredApiBase.includes('127.0.0.1');
 
 export const API_BASE =
-  isLocalhost
-    ? (configuredApiBase || 'http://localhost:5000/api')
+  isLocalhost || import.meta.env.DEV
+    ? (configuredApiBase || devApiBase)
     : (isBadProductionApiBase ? '/_/backend/api' : configuredApiBase);
 
 export function getToken() {
