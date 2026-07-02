@@ -18,6 +18,13 @@ export const API_BASE =
     ? (configuredApiBase || devApiBase)
     : (isBadProductionApiBase ? '/_/backend/api' : configuredApiBase);
 
+function clearStoredAuth() {
+  localStorage.removeItem('trigen_token');
+  localStorage.removeItem('trigen_user');
+  localStorage.removeItem('trigen_project_id');
+  window.dispatchEvent(new Event('trigen-auth-expired'));
+}
+
 export function getToken() {
   return localStorage.getItem('trigen_token');
 }
@@ -35,6 +42,7 @@ export async function apiRequest(path, options = {}) {
   if (!res.ok) {
     let msg = 'Request failed';
     try { msg = (await res.json()).message || msg; } catch {}
+    if (res.status === 401 && token) clearStoredAuth();
     throw new Error(msg);
   }
   return res.json();
@@ -45,7 +53,10 @@ export async function downloadPdf(projectId) {
   const res = await fetch(`${API_BASE}/reports/${projectId}/pdf`, {
     headers: { Authorization: `Bearer ${token}` }
   });
-  if (!res.ok) throw new Error('PDF generation failed');
+  if (!res.ok) {
+    if (res.status === 401 && token) clearStoredAuth();
+    throw new Error('PDF generation failed');
+  }
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
